@@ -1,0 +1,61 @@
+From 297c8bc3a3308a016c314b62e1ce998a61725fa5 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Mon, 19 Dec 2022 18:28:29 +0600
+Subject: [PATCH] dram size
+
+---
+ arch/arm/mach-sunxi/dram_sun50i_h616.c | 34 +++++++++++++-------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
+
+diff --git a/arch/arm/mach-sunxi/dram_sun50i_h616.c b/arch/arm/mach-sunxi/dram_sun50i_h616.c
+index f4f47834d9..ddd5edae4d 100644
+--- a/arch/arm/mach-sunxi/dram_sun50i_h616.c
++++ b/arch/arm/mach-sunxi/dram_sun50i_h616.c
+@@ -1005,27 +1005,27 @@ static void mctl_auto_detect_rank_width(struct dram_para *para)
+ static void mctl_auto_detect_dram_size(struct dram_para *para)
+ {
+ 	/* detect row address bits */
+-	para->cols = 8;
+-	para->rows = 18;
++	para->cols = 11;
++	para->rows = 14;
+ 	mctl_core_init(para);
+ 
+-	for (para->rows = 13; para->rows < 18; para->rows++) {
+-		/* 8 banks, 8 bit per byte and 16/32 bit width */
+-		if (mctl_mem_matches((1 << (para->rows + para->cols +
+-					    4 + para->bus_full_width))))
+-			break;
+-	}
++	// for (para->rows = 13; para->rows < 18; para->rows++) {
++	// 	/* 8 banks, 8 bit per byte and 16/32 bit width */
++	// 	if (mctl_mem_matches((1 << (para->rows + para->cols +
++	// 				    4 + para->bus_full_width))))
++	// 		break;
++	// }
+ 
+-	/* detect column address bits */
+-	para->cols = 11;
+-	mctl_core_init(para);
++	//  detect column address bits 
++	// para->cols = 11;
++	// mctl_core_init(para);
+ 
+-	for (para->cols = 8; para->cols < 11; para->cols++) {
+-		/* 8 bits per byte and 16/32 bit width */
+-		if (mctl_mem_matches(1 << (para->cols + 1 +
+-					   para->bus_full_width)))
+-			break;
+-	}
++	// for (para->cols = 8; para->cols < 11; para->cols++) {
++	// 	/* 8 bits per byte and 16/32 bit width */
++	// 	if (mctl_mem_matches(1 << (para->cols + 1 +
++	// 				   para->bus_full_width)))
++	// 		break;
++	// }
+ }
+ 
+ static unsigned long mctl_calc_size(struct dram_para *para)
+-- 
+2.38.1
+

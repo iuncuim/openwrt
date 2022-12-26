@@ -11,10 +11,10 @@ PKG_NAME:=arm-trusted-firmware-sunxi
 PKG_RELEASE:=1
 
 PKG_SOURCE_PROTO:=git
-PKG_SOURCE_URL=https://github.com/ARM-software/arm-trusted-firmware
-PKG_SOURCE_DATE:=2022-06-01
-PKG_SOURCE_VERSION:=35f4c7295bafeb32c8bcbdfb6a3f2e74a57e732b
-PKG_MIRROR_HASH:=88a282242ca5c921ce43eb913112e964ae87ddf85a87f2d4d6d192d1fe943370
+PKG_SOURCE_URL=https://github.com/iuncuim/arm-trusted-firmware
+PKG_SOURCE_DATE:=2022-12-14
+PKG_SOURCE_VERSION:=899748cd5d59ef45609f9add8237b27e26445c44
+# PKG_MIRROR_HASH:=b8108da3c7f16418ae97d8a1cb69323a622839be5496defff5083451f66e398f
 
 PKG_LICENSE:=BSD-3-Clause
 PKG_LICENSE_FILES:=license.md
@@ -54,11 +54,13 @@ MAKE_VARS = \
 
 MAKE_FLAGS += \
 	PLAT=$(BUILD_VARIANT) \
+    DEBUG=1 \
+    SUNXI_SETUP_REGULATORS=0 \
 	bl31
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(STAGING_DIR_IMAGE)
-	$(CP) $(PKG_BUILD_DIR)/build/$(BUILD_VARIANT)/release/bl31.bin $(STAGING_DIR_IMAGE)/bl31_$(BUILD_VARIANT).bin
+	$(CP) $(PKG_BUILD_DIR)/build/$(BUILD_VARIANT)/debug/bl31.bin $(STAGING_DIR_IMAGE)/bl31_$(BUILD_VARIANT).bin
 endef
 
 define Package/arm-trusted-firmware-sunxi/install

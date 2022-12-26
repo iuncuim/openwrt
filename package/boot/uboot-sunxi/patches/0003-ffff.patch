@@ -1,0 +1,35 @@
+From 6376909ac9bf2d0afeb92f9262baea656902daa4 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Mon, 19 Dec 2022 19:06:47 +0600
+Subject: [PATCH] ffff
+
+---
+ board/sunxi/board.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/board/sunxi/board.c b/board/sunxi/board.c
+index 0953f7ecd5..723b25bcd3 100644
+--- a/board/sunxi/board.c
++++ b/board/sunxi/board.c
+@@ -652,13 +652,13 @@ void sunxi_board_init(void)
+ #if defined CONFIG_AXP152_POWER || defined CONFIG_AXP209_POWER || \
+ 	defined CONFIG_AXP221_POWER || defined CONFIG_AXP305_POWER || \
+ 	defined CONFIG_AXP809_POWER || defined CONFIG_AXP858_POWER
+-	power_failed = axp_init();
++	// power_failed = axp_init();
+ 
+ #if defined CONFIG_AXP858_POWER
+-	power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);
+-	power_failed |= axp_set_dcdc2(CONFIG_AXP_DCDC2_VOLT);
+-	power_failed |= axp_set_dcdc3(CONFIG_AXP_DCDC3_VOLT);
+-	power_failed |= axp_set_dcdc5(CONFIG_AXP_DCDC5_VOLT);
++	// power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);
++	// power_failed |= axp_set_dcdc2(CONFIG_AXP_DCDC2_VOLT);
++	// power_failed |= axp_set_dcdc3(CONFIG_AXP_DCDC3_VOLT);
++	// power_failed |= axp_set_dcdc5(CONFIG_AXP_DCDC5_VOLT);
+ #endif
+ 
+ #endif
+-- 
+2.38.1
+

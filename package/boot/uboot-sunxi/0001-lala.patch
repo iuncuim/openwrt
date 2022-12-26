@@ -1,0 +1,404 @@
+From 031f153cb13b47ade2d65c2117587c12162cf1fb Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Fri, 16 Dec 2022 11:35:44 +0600
+Subject: [PATCH] lala
+
+---
+ arch/arm/dts/sun50i-t507-myir-yt507.dts | 129 ++++++++++++++++++++++++
+ arch/arm/mach-sunxi/dram_sun50i_h616.c  |  42 ++++----
+ board/sunxi/board.c                     |  45 ++++++---
+ configs/myir_yt507_defconfig            |  26 +++++
+ configs/orangepi_zero2_defconfig        |   8 +-
+ drivers/power/axp858.c                  |  37 ++++++-
+ include/axp_pmic.h                      |   1 +
+ 7 files changed, 246 insertions(+), 42 deletions(-)
+ create mode 100644 arch/arm/dts/sun50i-t507-myir-yt507.dts
+ create mode 100644 configs/myir_yt507_defconfig
+
+diff --git a/arch/arm/dts/sun50i-t507-myir-yt507.dts b/arch/arm/dts/sun50i-t507-myir-yt507.dts
+new file mode 100644
+index 0000000000..daf4fd20eb
+--- /dev/null
++++ b/arch/arm/dts/sun50i-t507-myir-yt507.dts
+@@ -0,0 +1,129 @@
++// SPDX-License-Identifier: (GPL-2.0+ or MIT)
++/*
++ * Copyright (C) 2020 Arm Ltd.
++ */
++
++/dts-v1/;
++
++#include "sun50i-h616.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/leds/common.h>
++
++/ {
++	model = "MYiR YT507";
++	compatible = "myir,yt507", "allwinner,sun50i-h616";
++
++	aliases {
++		ethernet0 = &emac0;
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++	/*
++	leds {
++		compatible = "gpio-leds";
++
++		led-0 {
++			function = LED_FUNCTION_POWER;
++			color = <LED_COLOR_ID_BLUE>;
++			gpios = <&pio 4 19 GPIO_ACTIVE_LOW>;  PE19 
++			default-state = "off";
++		};
++	};
++	*/
++	reg_vcc5v: vcc5v {
++		/* board wide 5V supply directly from the USB-C socket */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++	/*
++	reg_gmac_3v3: gmac-3v3 {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-gmac-3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		startup-delay-us = <100>;
++		enable-active-high;
++		gpio = <&pio 3 22 GPIO_ACTIVE_HIGH>;
++	};
++	*/
++};
++
++&emac0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&ext_rgmii_pins>;
++	phy-mode = "rgmii";
++	phy-handle = <&ext_rgmii_phy>;
++	reset-gpios = <&pio 8 6 GPIO_ACTIVE_HIGH>; //PI6
++	allwinner,rx-delay-ps = <3100>;
++	allwinner,tx-delay-ps = <700>;
++	status = "okay";
++};
++
++&mdio0 {
++	ext_rgmii_phy: ethernet-phy@6 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <6>;
++	};
++};
++
++&mmc0 {
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;	/* PF6 */
++	bus-width = <4>;
++	status = "okay";
++};
++
++&mmc2 {
++	non-removable;
++	bus-width = <8>;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++	no-sdio;
++	no-sd;
++	cap-mmc-highspeed;
++	sunxi-power-save-mode;
++	sunxi-dis-signal-vol-sw;
++	max-frequency = <50000000>;
++	status = "okay";
++};
++
++&r_rsb {
++	status = "okay";
++};
++
++&pio {
++	/*
++	vcc-pc-supply = <&reg_aldo1>;
++	vcc-pf-supply = <&reg_aldo1>;
++	vcc-pg-supply = <&reg_bldo1>;
++	vcc-ph-supply = <&reg_aldo1>;
++	vcc-pi-supply = <&reg_aldo1>;
++	*/
++};
++
++&spi0  {
++	status = "okay";
++	pinctrl-names = "default";
++	pinctrl-0 = <&spi0_pins>, <&spi0_cs0_pin>;
++
++	flash@0 {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		compatible = "jedec,spi-nor";
++		reg = <0>;
++		spi-max-frequency = <40000000>;
++	};
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_ph_pins>;
++	status = "okay";
++};
+diff --git a/arch/arm/mach-sunxi/dram_sun50i_h616.c b/arch/arm/mach-sunxi/dram_sun50i_h616.c
+index 0e66d7c667..80f3b703b3 100644
+--- a/arch/arm/mach-sunxi/dram_sun50i_h616.c
++++ b/arch/arm/mach-sunxi/dram_sun50i_h616.c
+@@ -1005,27 +1005,29 @@ static void mctl_auto_detect_rank_width(struct dram_para *para)
+ static void mctl_auto_detect_dram_size(struct dram_para *para)
+ {
+ 	/* detect row address bits */
+-	para->cols = 8;
+-	para->rows = 18;
+-	mctl_core_init(para);
+-
+-	for (para->rows = 13; para->rows < 18; para->rows++) {
+-		/* 8 banks, 8 bit per byte and 16/32 bit width */
+-		if (mctl_mem_matches((1 << (para->rows + para->cols +
+-					    4 + para->bus_full_width))))
+-			break;
+-	}
+-
+-	/* detect column address bits */
+-	para->cols = 11;
++	para->cols = 10;
++	para->rows = 13;
+ 	mctl_core_init(para);
+-
+-	for (para->cols = 8; para->cols < 11; para->cols++) {
+-		/* 8 bits per byte and 16/32 bit width */
+-		if (mctl_mem_matches(1 << (para->cols + 1 +
+-					   para->bus_full_width)))
+-			break;
+-	}
++	// para->rows = 13;
++	// //for (para->rows = 13; para->rows < 14; para->rows++) {
++	// 	/* 8 banks, 8 bit per byte and 16/32 bit width */
++	// 	printf("rows: %d\n",para->rows);
++	// 	if (mctl_mem_matches((1 << (para->rows + para->cols +
++	// 				    4 + para->bus_full_width))))
++	// //		break;
++	// //}
++
++	// /* detect column address bits */
++	// para->cols = 10;
++	// mctl_core_init(para);
++
++	// for (para->cols = 8; para->cols < 10; para->cols++) {
++	// 	/* 8 bits per byte and 16/32 bit width */
++	// 	printf("cols: %d\n",para->cols);
++	// 	if (mctl_mem_matches(1 << (para->cols + 1 +
++	// 				   para->bus_full_width)))
++	// 		break;
++	// }
+ }
+ 
+ static unsigned long mctl_calc_size(struct dram_para *para)
+diff --git a/board/sunxi/board.c b/board/sunxi/board.c
+index c5c41b0808..25acdc1c32 100644
+--- a/board/sunxi/board.c
++++ b/board/sunxi/board.c
+@@ -587,22 +587,39 @@ void sunxi_board_init(void)
+ #if defined CONFIG_AXP152_POWER || defined CONFIG_AXP209_POWER || \
+ 	defined CONFIG_AXP221_POWER || defined CONFIG_AXP305_POWER || \
+ 	defined CONFIG_AXP809_POWER || defined CONFIG_AXP858_POWER 
+-	power_failed = axp_init();
+-	if (IS_ENABLED(CONFIG_AXP_DISABLE_BOOT_ON_POWERON) && !power_failed) {
+-		u8 boot_reason;
+-
+-		pmic_bus_read(AXP_POWER_STATUS, &boot_reason);
+-		if (boot_reason & AXP_POWER_STATUS_ALDO_IN) {
+-			printf("Power on by plug-in, shutting down.\n");
+-			pmic_bus_write(0x32, BIT(7));
+-		}
+-	}
++	// power_failed = axp_init();
++	// printf("power0: %d\n",power_failed);
++	// if (IS_ENABLED(CONFIG_AXP_DISABLE_BOOT_ON_POWERON) && !power_failed) {
++	// 	u8 boot_reason;
++
++	// 	pmic_bus_read(AXP_POWER_STATUS, &boot_reason);
++	// 	if (boot_reason & AXP_POWER_STATUS_ALDO_IN) {
++	// 		printf("Power on by plug-in, shutting down.\n");
++	// 		pmic_bus_write(0x32, BIT(7));
++	// 	}
++	// }
+ 
+ #if defined CONFIG_AXP858_POWER
+-	power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);
+-	power_failed |= axp_set_dcdc2(CONFIG_AXP_DCDC2_VOLT);
+-	power_failed |= axp_set_dcdc3(CONFIG_AXP_DCDC3_VOLT);
+-	power_failed |= axp_set_dcdc5(CONFIG_AXP_DCDC5_VOLT);
++	// power_failed |= axp_set_dcdc1(CONFIG_AXP_DCDC1_VOLT);
++	// printf("power1: %d\n",power_failed);
++	// power_failed |= axp_set_dcdc2(CONFIG_AXP_DCDC2_VOLT);
++	// printf("power2: %d\n",power_failed);
++	// power_failed |= axp_set_dcdc3(CONFIG_AXP_DCDC3_VOLT);
++	// printf("power3: %d\n",power_failed);
++	// power_failed |= axp_set_dcdc5(CONFIG_AXP_DCDC5_VOLT);
++	// printf("power4: %d\n",power_failed);
++	// power_failed |= axp_set_dcdc6(3300);
++	// printf("power5: %d\n",power_failed);
++	// power_failed |= axp_set_aldo1(1800);
++	// printf("power6: %d\n",power_failed);
++	// power_failed |= axp_set_aldo2(1800);
++	// printf("power7: %d\n",power_failed);
++	// power_failed |= axp_set_aldo3(1800);
++	// printf("power8: %d\n",power_failed);
++	// power_failed |= axp_set_aldo4(1800);
++	// printf("power9: %d\n",power_failed);
++	// power_failed |= axp_set_aldo5(3300);
++	// printf("power10: %d\n",power_failed);
+ #endif
+ 
+ #endif
+diff --git a/configs/myir_yt507_defconfig b/configs/myir_yt507_defconfig
+new file mode 100644
+index 0000000000..6078b8d1d7
+--- /dev/null
++++ b/configs/myir_yt507_defconfig
+@@ -0,0 +1,26 @@
++CONFIG_ARM=y
++CONFIG_ARCH_SUNXI=y
++CONFIG_DEFAULT_DEVICE_TREE="sun50i-t507-myir-yt507"
++CONFIG_SPL=y
++# CONFIG_DRAM_SUN50I_H616_WRITE_LEVELING is not set
++CONFIG_DRAM_SUN50I_H616_READ_CALIBRATION=y
++# CONFIG_DRAM_SUN50I_H616_READ_TRAINING is not set
++# CONFIG_DRAM_SUN50I_H616_WRITE_TRAINING is not set
++CONFIG_DRAM_SUN50I_H616_BIT_DELAY_COMPENSATION=y
++CONFIG_DRAM_SUN50I_H616_UNKNOWN_FEATURE=y
++CONFIG_MACH_SUN50I_H616=y
++CONFIG_MMC0_CD_PIN="PF6"
++CONFIG_R_I2C_ENABLE=y
++CONFIG_SPL_SPI_SUNXI=y
++# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_SYS_MONITOR_LEN=786432
++CONFIG_SPL_I2C=y
++CONFIG_SPL_SYS_I2C_LEGACY=y
++CONFIG_SYS_I2C_MVTWSI=y
++CONFIG_SYS_I2C_SLAVE=0x7f
++CONFIG_SYS_I2C_SPEED=400000
++CONFIG_SPI_FLASH_MACRONIX=y
++CONFIG_PHY_REALTEK=y
++CONFIG_SUN8I_EMAC=y
++CONFIG_SPI=y
++CONFIG_GPIO_HOG=y
+diff --git a/configs/orangepi_zero2_defconfig b/configs/orangepi_zero2_defconfig
+index 877eccf31b..7d9f15e35c 100644
+--- a/configs/orangepi_zero2_defconfig
++++ b/configs/orangepi_zero2_defconfig
+@@ -2,10 +2,12 @@ CONFIG_ARM=y
+ CONFIG_ARCH_SUNXI=y
+ CONFIG_DEFAULT_DEVICE_TREE="sun50i-h616-orangepi-zero2"
+ CONFIG_SPL=y
+-CONFIG_DRAM_SUN50I_H616_WRITE_LEVELING=y
++# CONFIG_DRAM_SUN50I_H616_WRITE_LEVELING is not set
+ CONFIG_DRAM_SUN50I_H616_READ_CALIBRATION=y
+-CONFIG_DRAM_SUN50I_H616_READ_TRAINING=y
+-CONFIG_DRAM_SUN50I_H616_WRITE_TRAINING=y
++# CONFIG_DRAM_SUN50I_H616_READ_TRAINING is not set
++# CONFIG_DRAM_SUN50I_H616_WRITE_TRAINING is not set
++CONFIG_DRAM_SUN50I_H616_BIT_DELAY_COMPENSATION=y
++CONFIG_DRAM_SUN50I_H616_UNKNOWN_FEATURE=y
+ CONFIG_MACH_SUN50I_H616=y
+ CONFIG_MMC0_CD_PIN="PF6"
+ CONFIG_R_I2C_ENABLE=y
+diff --git a/drivers/power/axp858.c b/drivers/power/axp858.c
+index a2d5208588..b7949bf722 100644
+--- a/drivers/power/axp858.c
++++ b/drivers/power/axp858.c
+@@ -112,12 +112,31 @@ int axp_set_dcdc5(unsigned int mvolt)
+ 				AXP858_OUTPUT_CTRL1_DCDC5_EN);
+ }
+ 
++int axp_set_dcdc6(unsigned int mvolt)
++{
++	int ret;
++	u8 cfg;
++
++	cfg = axp858_mvolt_to_cfg(mvolt, 500, 3400, 100);
++
++	if (mvolt == 0)
++		return pmic_bus_clrbits(AXP858_OUTPUT_CTRL1,
++					AXP858_OUTPUT_CTRL1_DCDC6_EN);
++
++	ret = pmic_bus_write(AXP858_DCDC6_CTRL, cfg);
++	if (ret)
++		return ret;
++
++	return pmic_bus_setbits(AXP858_OUTPUT_CTRL1,
++				AXP858_OUTPUT_CTRL1_DCDC6_EN);
++}
++
+ int axp_set_aldo(int aldo_num, unsigned int mvolt)
+ {
+ 	int ret;
+ 	u8 cfg;
+ 
+-	if (aldo_num < 1 || aldo_num > 3)
++	if (aldo_num < 1 || aldo_num > 5)
+ 		return -EINVAL;
+ 
+ 	if (mvolt == 0)
+@@ -149,6 +168,16 @@ int axp_set_aldo3(unsigned int mvolt)
+ 	return axp_set_aldo(3, mvolt);
+ }
+ 
++int axp_set_aldo4(unsigned int mvolt)
++{
++	return axp_set_aldo(4, mvolt);
++}
++
++int axp_set_aldo5(unsigned int mvolt)
++{
++	return axp_set_aldo(5, mvolt);
++}
++
+ // int axp_set_dldo(int dldo_num, unsigned int mvolt)
+ // {
+ // 	int ret;
+@@ -256,16 +285,14 @@ int axp_init(void)
+ 	u8 axp_chip_id;
+ 	int ret;
+ 	u8 reg_value;
+-    printf("PMIC: AXP853T/AXP858\n");
++    
+ 	ret = pmic_bus_init();
+-	if (ret)
+-		return ret;
+-
+ 	ret = pmic_bus_read(AXP858_CHIP_ID, &axp_chip_id);	
+ 
+ 	if (!(axp_chip_id == 0x54))
+ 		return -ENODEV;
+ 	else {
++		printf("PMIC: AXP853T/AXP858\n");
+ 		return ret;
+ 	}
+ 
+diff --git a/include/axp_pmic.h b/include/axp_pmic.h
+index 0341593143..3d0973012e 100644
+--- a/include/axp_pmic.h
++++ b/include/axp_pmic.h
+@@ -36,6 +36,7 @@ int axp_set_aldo1(unsigned int mvolt);
+ int axp_set_aldo2(unsigned int mvolt);
+ int axp_set_aldo3(unsigned int mvolt);
+ int axp_set_aldo4(unsigned int mvolt);
++int axp_set_aldo5(unsigned int mvolt);
+ int axp_set_dldo(int dldo_num, unsigned int mvolt);
+ int axp_set_eldo(int eldo_num, unsigned int mvolt);
+ int axp_set_fldo(int fldo_num, unsigned int mvolt);
+-- 
+2.38.1
+

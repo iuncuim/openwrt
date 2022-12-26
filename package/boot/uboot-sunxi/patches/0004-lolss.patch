@@ -1,0 +1,56 @@
+From cfd5b6eea527af4a65007d068ca8c7ad3d76d5d8 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Tue, 20 Dec 2022 15:37:16 +0600
+Subject: [PATCH] lolss
+
+---
+ drivers/power/axp858.c |  3 ++-
+ include/axp858.h       | 11 ++++++-----
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/power/axp858.c b/drivers/power/axp858.c
+index a2d5208588..7c70df244a 100644
+--- a/drivers/power/axp858.c
++++ b/drivers/power/axp858.c
+@@ -256,7 +256,7 @@ int axp_init(void)
+ 	u8 axp_chip_id;
+ 	int ret;
+ 	u8 reg_value;
+-    printf("PMIC: AXP853T/AXP858\n");
++    
+ 	ret = pmic_bus_init();
+ 	if (ret)
+ 		return ret;
+@@ -266,6 +266,7 @@ int axp_init(void)
+ 	if (!(axp_chip_id == 0x54))
+ 		return -ENODEV;
+ 	else {
++		printf("PMIC: AXP853T/AXP858\n");
+ 		return ret;
+ 	}
+ 
+diff --git a/include/axp858.h b/include/axp858.h
+index 8980204dd9..5989eeabfb 100644
+--- a/include/axp858.h
++++ b/include/axp858.h
+@@ -52,11 +52,12 @@
+ #define AXP858_BLDO4_CTRL	    0x27
+ #define AXP858_BLDO5_CTRL	    0x28
+ 
+-#define AXP858_CLDO1_CTRL	    0x24
+-#define AXP858_CLDO2_CTRL	    0x25
+-#define AXP858_CLDO3_CTRL	    0x26
+-#define AXP858_CLDO4_GPIO1_CTRL	0x27
+-#define AXP858_CLDO4_GPIO2_CTRL	0x28
++#define AXP858_CLDO1_CTRL	    0x29
++#define AXP858_CLDO2_CTRL	    0x2A
++#define AXP858_CLDO3_CTRL	    0x2B
++#define AXP858_CLDO4_CTRL	    0x2D
++// #define AXP858_CLDO4_GPIO1_CTRL	0x27
++// #define AXP858_CLDO4_GPIO2_CTRL	0x28
+ 
+ #define AXP858_SHUTDOWN		0x32
+ #define AXP858_SHUTDOWN_POWEROFF	(1 << 7)
+-- 
+2.38.1
+

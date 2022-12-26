@@ -9,6 +9,19 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
+# PKG_VERSION:=2022.12
+# PKG_SOURCE_PROTO:=git
+# PKG_SOURCE_URL:=https://github.com/iuncuim/u-boot.git
+# PKG_SOURCE_VERSION:=4faa8b19966e3741dcf6bbb398262c746a9c9782
+
+# PKG_RELEASE:=$(AUTORELEASE)
+
+# PKG_SOURCE_PROTO:=git
+# PKG_SOURCE_URL:=https://github.com/iuncuim/u-boot.git
+# PKG_SOURCE_DATE:=2022-12-15
+# PKG_SOURCE_VERSION:=4faa8b19966e3741dcf6bbb398262c746a9c9782
+# PKG_HASH:=42b55a175218a283bc56a8f584486c0e7daf21cafeb76813aafd100e8c5fca05
+
 PKG_VERSION:=2021.04
 
 PKG_HASH:=0d438b1bb5cceb57a18ea2de4a0d51f7be5b05b98717df05938636e0aadfe11a
