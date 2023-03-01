@@ -1,28 +1,54 @@
-From c873c54739d24511e65039e0a6a13dbf449f0822 Mon Sep 17 00:00:00 2001
-From: Andre Przywara <andre.przywara@arm.com>
-Date: Thu, 10 Dec 2020 14:42:12 +0000
-Subject: [PATCH 17/23] net: stmmac: dwmac-sun8i: Prepare for second EMAC clock
- register
-
-The Allwinner H616 SoC has two EMAC controllers, with the second one
-being tied to the internal PHY, but also using a separate EMAC clock
-register.
-
-To tell the driver about which clock register to use, we add a parameter
-to our syscon phandle. The driver will use this value as an index into
-the regmap, so that we can address more than the first register, if
-needed.
-
-Signed-off-by: Andre Przywara <andre.przywara@arm.com>
----
- drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-index 4422baeed3d8..5f3fefd9a74e 100644
 --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
 +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun8i.c
-@@ -1147,11 +1147,13 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+@@ -69,6 +69,7 @@
+  */
+ struct sunxi_priv_data {
+ 	struct clk *tx_clk;
++	struct clk *emac_25m;
+ 	struct clk *ephy_clk;
+ 	struct regulator *regulator;
+ 	struct reset_control *rst_ephy;
+@@ -141,7 +142,7 @@
+ };
+ 
+ static const struct emac_variant emac_variant_h6 = {
+-	.default_syscon_value = 0x50000,
++	.default_syscon_value = 0x58000,
+ 	.syscon_field = &sun8i_syscon_reg_field,
+ 	/* The "Internal PHY" of H6 is not on the die. It's on the
+ 	 * co-packaged AC200 chip instead.
+@@ -730,11 +731,11 @@
+ 	 * need more if no cable plugged. 100ms seems OK
+ 	 */
+ 	err = readl_poll_timeout(priv->ioaddr + EMAC_BASIC_CTL1, v,
+-				 !(v & 0x01), 100, 100000);
++				 !(v & 0x01), 100, 200000);
+ 
+ 	if (err) {
+ 		dev_err(priv->device, "EMAC reset timeout\n");
+-		return err;
++		return 0;
+ 	}
+ 	return 0;
+ }
+@@ -878,6 +879,7 @@
+ 		/* After changing syscon value, the MAC need reset or it will
+ 		 * use the last value (and so the last PHY set).
+ 		 */
++		dev_err(priv->device, "EMAC reset for syscon\n");
+ 		ret = sun8i_dwmac_reset(priv);
+ 	}
+ 	return ret;
+@@ -910,7 +912,7 @@
+ 	ret = regmap_field_read(gmac->regmap_field, &val);
+ 	if (ret) {
+ 		dev_err(dev, "Fail to read from regmap field.\n");
+-		return ret;
++		//return ret;
+ 	}
+ 
+ 	reg = gmac->variant->default_syscon_value;
+@@ -1129,11 +1131,13 @@
  	struct stmmac_resources stmmac_res;
  	struct sunxi_priv_data *gmac;
  	struct device *dev = &pdev->dev;
@@ -36,7 +62,19 @@ index 4422baeed3d8..5f3fefd9a74e 100644
  
  	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
  	if (ret)
-@@ -1209,8 +1211,12 @@ static int sun8i_dwmac_probe(struct platform_device *pdev)
+@@ -1155,6 +1159,11 @@
+ 		return PTR_ERR(gmac->tx_clk);
+ 	}
+ 
++	gmac->emac_25m = devm_clk_get(dev, "emac_25m");
++	if (!IS_ERR(gmac->emac_25m))
++		clk_prepare_enable(gmac->emac_25m);
++	else
++		gmac->emac_25m = NULL;
+ 	/* Optional regulator for PHY */
+ 	gmac->regulator = devm_regulator_get_optional(dev, "phy");
+ 	if (IS_ERR(gmac->regulator)) {
+@@ -1191,8 +1200,14 @@
  		return ret;
  	}
  
@@ -45,13 +83,15 @@ index 4422baeed3d8..5f3fefd9a74e 100644
 +	syscon_field = *gmac->variant->syscon_field;
 +	ret = of_property_read_u32_index(pdev->dev.of_node, "syscon", 1,
 +					 &syscon_idx);
-+	if (!ret)
++	if (!ret){
++		dev_err(dev, "AAA: syscon idx: %08x\n",syscon_field.reg);
 +		syscon_field.reg += syscon_idx * sizeof(u32);
++	}
 +	gmac->regmap_field = devm_regmap_field_alloc(dev, regmap, syscon_field);
  	if (IS_ERR(gmac->regmap_field)) {
  		ret = PTR_ERR(gmac->regmap_field);
  		dev_err(dev, "Unable to map syscon register: %d\n", ret);
-@@ -1330,6 +1336,8 @@ static const struct of_device_id sun8i_dwmac_match[] = {
+@@ -1301,6 +1316,8 @@
  		.data = &emac_variant_a64 },
  	{ .compatible = "allwinner,sun50i-h6-emac",
  		.data = &emac_variant_h6 },
@@ -60,6 +100,3 @@ index 4422baeed3d8..5f3fefd9a74e 100644
  	{ }
  };
  MODULE_DEVICE_TABLE(of, sun8i_dwmac_match);
--- 
-2.25.1
-

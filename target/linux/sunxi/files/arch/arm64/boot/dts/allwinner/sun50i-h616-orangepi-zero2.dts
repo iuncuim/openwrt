@@ -11,11 +11,12 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 / {
-	model = "OrangePi Zero2";
+	model = "MYiR MYB-YT507";
 	compatible = "xunlong,orangepi-zero2", "allwinner,sun50i-h616";
 
 	aliases {
 		ethernet0 = &emac0;
+		ethernet1 = &emac1;
 		serial0 = &uart0;
 	};
 
@@ -49,18 +50,13 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
-	reg_vcc3v3: vcc3v3 {
+
+	reg_gmac_3v3: gmac-3v3 {
 		compatible = "regulator-fixed";
-		regulator-name = "vcc3v3";
+		regulator-name = "gmac-3v3";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		regulator-always-on;
-	};
-	reg_vccio: vccio {
-		compatible = "regulator-fixed";
-		regulator-name = "vccio";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
+		//startup-delay-us = <100000>;
 		enable-active-high;
 		gpio = <&pio 3 22 GPIO_ACTIVE_HIGH>;
 		regulator-always-on;
@@ -83,57 +79,96 @@
 	status = "okay";
 };
 
-/* USB 2 & 3 are on headers only. */
 &pio {
+	vcc-pa-supply = <&reg_dcdc1>;
+	vcc-pc-supply = <&reg_aldo1>;
+	vcc-pd-supply = <&reg_aldo1>; // Don't know why
 	vcc-pe-supply = <&reg_aldo5>;
-	/*
-	vcc-pd-supply = <&reg_vcc3v3>;
-	vcc-pi-supply = <&reg_vcc3v3>;
-	vcc-pg-supply = <&reg_vccio>;
-	vcc-ph-supply = <&reg_vccio>;
+	vcc-pf-supply = <&reg_dcdc1>;
+	vcc-pg-supply = <&reg_dcdc1>;
+	vcc-ph-supply = <&reg_dcdc1>;
+	vcc-pi-supply = <&reg_dcdc6>;
+	/*	
+	rgmii_phy_reset_pin: rgmii-phy-reset-pin {
+		pins = "PI6";
+		function = "gpio_out";
+	};
+	rmii_phy_reset_pin: rmii-phy-reset-pin {
+		pins = "PH5";
+		function = "gpio_out";
+	};
 	*/
 };
 
 &emac0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&ext_rgmii_pins>;
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&ext_rgmii_phy>;
-	phy-supply = <&reg_vcc3v3>;
+	phy-supply = <&reg_dcdc6>,<&reg_gmac_3v3>;
 	allwinner,rx-delay-ps = <3100>;
 	allwinner,tx-delay-ps = <700>;
 	status = "okay";
 };
 
+&emac1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&rmii_pins>;
+	phy-mode = "rmii";
+	phy-handle = <&rmii_phy>;
+	phy-supply = <&reg_dcdc6>;
+	allwinner,rx-delay-ps = <0>;
+	allwinner,tx-delay-ps = <700>;
+	//phy-reset-gpios = <&pio 7 5 GPIO_ACTIVE_HIGH>; // PH5
+	//phy-reset-duration = <200>;
+	//phy-reset-post-delay = <40>;
+	status = "okay";
+};
+
 &mdio {
-	ext_rgmii_phy: ethernet-phy@6 {
+	ext_rgmii_phy: ethernet-phy@0 {
 		compatible = "ethernet-phy-ieee802.3-c22";
-		reg = <6>;
-		reset-gpios = <&pio 8 6 GPIO_ACTIVE_LOW>; //PI6
-		reset-assert-us = <50000>;
-		reset-deassert-us = <1000>;
+		reg = <0>;
+		reset-gpios = <&pio 8 6 GPIO_ACTIVE_LOW>; // PI6
+		reset-assert-us = <100000>;
+		reset-deassert-us = <40000>;
+		
+	};
+};
+
+&mdio1 {
+	/*
+	reset-gpios = <&pio 7 5 GPIO_ACTIVE_HIGH>; // PH5
+	reset-assert-us = <50000>;
+	reset-deassert-us = <1000>;
+	*/
+	rmii_phy: ethernet-phy@0 {
+		//clocks = <&ccu CLK_EMAC_25M>;
+		//reset-gpios = <&pio 7 5 GPIO_ACTIVE_HIGH>; // PH5
+		//reset-assert-us = <100000>;
+		//reset-deassert-us = <40000>;
+		compatible = "ethernet-phy-ieee802.3-c22";
+		reg = <0>;
 	};
 };
 
 &mmc0 {
-	vmmc-supply = <&reg_vcc3v3>;
+	vmmc-supply = <&reg_dcdc1>;
 	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;	/* PF6 */
 	bus-width = <4>;
 	status = "okay";
 };
 
 &mmc2 {
-	vmmc-supply = <&reg_vcc3v3>;
-	non-removable;
+	vmmc-supply = <&reg_dcdc1>;
+	vqmmc-supply = <&reg_aldo1>;
+	broken-cd;
 	bus-width = <8>;
+	non-removable;
+	cap-mmc-highspeed;
+	max-frequency = <50000000>;
 	mmc-ddr-1_8v;
 	mmc-hs200-1_8v;
-	no-sdio;
-	no-sd;
-	cap-mmc-highspeed;
-	sunxi-power-save-mode;
-	sunxi-dis-signal-vol-sw;
-	max-frequency = <50000000>;
 	status = "okay";
 };
 
@@ -164,32 +199,11 @@
 		vin3-supply = <&reg_vcc5v>;
 		vin4-supply = <&reg_vcc5v>;
 		vin5-supply = <&reg_vcc5v>;
+		vin6-supply = <&reg_vcc5v>;
 		aldoin-supply = <&reg_vcc5v>;
 		bldoin-supply = <&reg_vcc5v>;
 		cldoin-supply = <&reg_vcc5v>;
-		/*
-		dcdc1_vol		= 1003300
-		dcdc2_vol		= 1000900
-		dcdc3_vol       = 1000900
-		dcdc4_vol       = 1000900
-		dcdc5_vol       = 1001100
-		dcdc6_vol		= 1002800
-		aldo1_vol		= 1001800
-		aldo2_vol		= 1001800
-		aldo3_vol       = 1001800
-		aldo4_vol		= 1001800
-		aldo5_vol		= 1003300
-		bldo1_vol		= 1001800
-		bldo2_vol		= 1003300
-		bldo3_vol		= 1003300
-		bldo4_vol		= 1001800
-		bldo5_vol		= 1001200
-		cldo1_vol		= 1003300
-		cldo2_vol 		= 1001800
-		cldo3_vol		= 1003300
-		cldo4_vol       = 1001800
-		dc1sw_vol		= 1003300
-		*/
+
 		regulators {
 			reg_aldo1: aldo1 {
 				regulator-always-on;
@@ -265,7 +279,7 @@
 				regulator-always-on;
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <900000>;
-				regulator-name = "vdd-dcdc2";
+				regulator-name = "vdd-cpu";
 			};
 
 			reg_dcdc3: dcdc3 {
@@ -279,20 +293,20 @@
 				regulator-always-on;
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <900000>;
-				regulator-name = "vdd-dcdc4";
+				regulator-name = "vdd-gpu";
 			};
 
 			reg_dcdc5: dcdc5 {
 				regulator-always-on;
 				regulator-min-microvolt = <1100000>;
 				regulator-max-microvolt = <1100000>;
-				regulator-name = "vdd-dcdc5";
+				regulator-name = "vdd-dram";
 			};
 
 			reg_dcdc6: dcdc6 {
 				regulator-always-on;
-				regulator-min-microvolt = <2800000>;
-				regulator-max-microvolt = <2800000>;
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
 				regulator-name = "vdd-dcdc6";
 			};
 
