@@ -1,0 +1,83 @@
+Based on
+
+From: Daniel Palmer <daniel@0x0f.com>
+
+Add support for the ZBIT ZB25VQ128 128MBit SPI NOR
+flash.
+
+Link: http://www.cipatelje.eu/pdf/ZB25VQ128.pdf
+Signed-off-by: Daniel Palmer <daniel@0x0f.com>
+---
+ drivers/mtd/spi-nor/Makefile |  1 +
+ drivers/mtd/spi-nor/core.c   |  1 +
+ drivers/mtd/spi-nor/core.h   |  1 +
+ drivers/mtd/spi-nor/zbit.c   | 21 +++++++++++++++++++++
+ 4 files changed, 24 insertions(+)
+ create mode 100644 drivers/mtd/spi-nor/zbit.c
+
+diff --git a/drivers/mtd/spi-nor/Makefile b/drivers/mtd/spi-nor/Makefile
+index 6b904e439372..a6f3646824cb 100644
+--- a/drivers/mtd/spi-nor/Makefile
++++ b/drivers/mtd/spi-nor/Makefile
+@@ -17,6 +17,7 @@ spi-nor-objs			+= winbond.o
+ spi-nor-objs			+= xilinx.o
+ spi-nor-objs			+= xmc.o
+ spi-nor-objs			+= xtx.o
++spi-nor-objs			+= zbit.o
+ spi-nor-$(CONFIG_DEBUG_FS)	+= debugfs.o
+ obj-$(CONFIG_MTD_SPI_NOR)	+= spi-nor.o
+ 
+diff --git a/drivers/mtd/spi-nor/core.c b/drivers/mtd/spi-nor/core.c
+index cc08bd707378..75f6ac9485b9 100644
+--- a/drivers/mtd/spi-nor/core.c
++++ b/drivers/mtd/spi-nor/core.c
+@@ -1846,6 +1846,7 @@ static const struct spi_nor_manufacturer *manufacturers[] = {
+ 	&spi_nor_xilinx,
+ 	&spi_nor_xmc,
+ 	&spi_nor_xtx,
++	&spi_nor_zbit,
+ };
+ 
+ static const struct flash_info *spi_nor_match_id(struct spi_nor *nor,
+diff --git a/drivers/mtd/spi-nor/core.h b/drivers/mtd/spi-nor/core.h
+index 3348e1dd1445..ad3b34a3b80f 100644
+--- a/drivers/mtd/spi-nor/core.h
++++ b/drivers/mtd/spi-nor/core.h
+@@ -489,6 +489,7 @@ extern const struct spi_nor_manufacturer spi_nor_winbond;
+ extern const struct spi_nor_manufacturer spi_nor_xilinx;
+ extern const struct spi_nor_manufacturer spi_nor_xmc;
+ extern const struct spi_nor_manufacturer spi_nor_xtx;
++extern const struct spi_nor_manufacturer spi_nor_zbit;
+ 
+ extern const struct attribute_group *spi_nor_sysfs_groups[];
+ 
+diff --git a/drivers/mtd/spi-nor/zbit.c b/drivers/mtd/spi-nor/zbit.c
+new file mode 100644
+index 000000000000..d240dd65d249
+--- /dev/null
++++ b/drivers/mtd/spi-nor/zbit.c
+@@ -0,0 +1,21 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * Copyright (C) 2021, Daniel Palmer<daniel@thingy.jp>
++ */
++
++#include <linux/mtd/spi-nor.h>
++
++#include "core.h"
++
++static const struct flash_info zbit_parts[] = {
++	/* Zbit Semiconductor, Inc. */
++	{ "zb25vq128", INFO(0x5e4018, 0, 64 * 1024, 256)
++		NO_SFDP_FLAGS(SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
++			    SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB) },
++};
++
++const struct spi_nor_manufacturer spi_nor_zbit = {
++	.name = "zbit",
++	.parts = zbit_parts,
++	.nparts = ARRAY_SIZE(zbit_parts),
++};
+-- 
+2.33.0
+

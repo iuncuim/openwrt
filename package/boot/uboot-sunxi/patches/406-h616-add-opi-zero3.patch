@@ -1,0 +1,90 @@
+From: Andre Przywara <andre.przywara@arm.com>
+Subject: [PATCH 3/3] sunxi: H616: Add OrangePi Zero 3 board support
+
+The OrangePi Zero 3 is a small development board featuring the Allwinner
+H618 SoC, shipping with up to 4GB of DRAM, Gigabit Ethernet, a micro-HDMI
+connector and two USB sockets.
+The board uses LPDDR4 DRAM and an X-Powers AXP313a PMIC, support for
+which was recently added to U-Boot.
+
+Add a defconfig file selecting the right drivers and DRAM options.
+Since the .dts file was synced from the Linux kernel repo already, we
+just need to add one line to the Makefile to actually build the .dtb.
+
+The DRAM parameters were derived from the values found in the BSP DRAM
+drivers on the SPI NOR flash.
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+---
+ arch/arm/dts/Makefile            |  1 +
+ board/sunxi/MAINTAINERS          |  5 +++++
+ configs/orangepi_zero3_defconfig | 30 ++++++++++++++++++++++++++++++
+ 3 files changed, 36 insertions(+)
+ create mode 100644 configs/orangepi_zero3_defconfig
+
+diff --git a/arch/arm/dts/Makefile b/arch/arm/dts/Makefile
+index 1be08c5fdc2..5fc888680b3 100644
+--- a/arch/arm/dts/Makefile
++++ b/arch/arm/dts/Makefile
+@@ -835,6 +835,7 @@ dtb-$(CONFIG_MACH_SUN50I_H6) += \
+ 	sun50i-h6-tanix-tx6-mini.dtb
+ dtb-$(CONFIG_MACH_SUN50I_H616) += \
+ 	sun50i-h616-orangepi-zero2.dtb \
++	sun50i-h618-orangepi-zero3.dtb \
+ 	sun50i-h616-x96-mate.dtb
+ dtb-$(CONFIG_MACH_SUN50I) += \
+ 	sun50i-a64-amarula-relic.dtb \
+diff --git a/board/sunxi/MAINTAINERS b/board/sunxi/MAINTAINERS
+index 00614372119..f556857a391 100644
+--- a/board/sunxi/MAINTAINERS
++++ b/board/sunxi/MAINTAINERS
+@@ -455,6 +455,11 @@ M:	Jernej Skrabec <jernej.skrabec@siol.net>
+ S:	Maintained
+ F:	configs/orangepi_zero2_defconfig
+ 
++ORANGEPI ZERO 3 BOARD
++M:	Andre Przywara <andre.przywara@arm.com>
++S:	Maintained
++F:	configs/orangepi_zero3_defconfig
++
+ ORANGEPI PC 2 BOARD
+ M:	Andre Przywara <andre.przywara@arm.com>
+ S:	Maintained
+diff --git a/configs/orangepi_zero3_defconfig b/configs/orangepi_zero3_defconfig
+new file mode 100644
+index 00000000000..e59044f6639
+--- /dev/null
++++ b/configs/orangepi_zero3_defconfig
+@@ -0,0 +1,30 @@
++CONFIG_ARM=y
++CONFIG_ARCH_SUNXI=y
++CONFIG_DEFAULT_DEVICE_TREE="sun50i-h618-orangepi-zero3"
++CONFIG_SPL=y
++CONFIG_DRAM_SUN50I_H616_DX_ODT=0x07070707
++CONFIG_DRAM_SUN50I_H616_DX_DRI=0x0e0e0e0e
++CONFIG_DRAM_SUN50I_H616_CA_DRI=0x0e0e
++CONFIG_DRAM_SUN50I_H616_ODT_EN=0xaaaaeeee
++CONFIG_DRAM_SUN50I_H616_TPR6=0x44000000
++CONFIG_DRAM_SUN50I_H616_TPR10=0x402f6663
++CONFIG_DRAM_SUN50I_H616_TPR11=0x24242624
++CONFIG_DRAM_SUN50I_H616_TPR12=0x0f0f100f
++CONFIG_MACH_SUN50I_H616=y
++CONFIG_SUNXI_DRAM_H616_LPDDR4=y
++CONFIG_R_I2C_ENABLE=y
++CONFIG_SPL_SPI_SUNXI=y
++# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_SPL_I2C=y
++CONFIG_SPL_SYS_I2C_LEGACY=y
++CONFIG_SYS_I2C_MVTWSI=y
++CONFIG_SYS_I2C_SLAVE=0x7f
++CONFIG_SYS_I2C_SPEED=400000
++CONFIG_SPI_FLASH_ZBIT=y
++CONFIG_PHY_MOTORCOMM=y
++CONFIG_SUN8I_EMAC=y
++CONFIG_AXP313_POWER=y
++CONFIG_SPI=y
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_OHCI_HCD=y
++CONFIG_USB_MUSB_GADGET=y
+-- 
+2.35.8
