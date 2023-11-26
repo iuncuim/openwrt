@@ -55,7 +55,7 @@ new file mode 100644
 index 00000000000..e59044f6639
 --- /dev/null
 +++ b/configs/orangepi_zero3_defconfig
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,31 @@
 +CONFIG_ARM=y
 +CONFIG_ARCH_SUNXI=y
 +CONFIG_DEFAULT_DEVICE_TREE="sun50i-h618-orangepi-zero3"
@@ -86,5 +86,6 @@ index 00000000000..e59044f6639
 +CONFIG_USB_EHCI_HCD=y
 +CONFIG_USB_OHCI_HCD=y
 +CONFIG_USB_MUSB_GADGET=y
++CONFIG_USB1_VBUS_PIN="PC16"
 -- 
 2.35.8
