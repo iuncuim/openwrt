@@ -1,0 +1,94 @@
+From 48d78033266fa13a61ce674792773befefcd3ec9 Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Wed, 5 Apr 2023 21:30:11 +0100
+Subject: [PATCH 10/15] sunxi: arm64: boot0.h: runtime check for RVBAR address
+
+Some SoCs of the H616 family use a die variant, that puts some CPU power
+and reset control registers at a different address. There are examples
+of two instances of the same board, using different die revisions of the
+otherwise same H313 SoC. We need to write to a register in that block
+*very* early in the SPL boot, to switch the core to AArch64.
+
+Since the devices are otherwise indistinguishable, let the SPL code read
+that die variant and use the respective RVBAR address based on that.
+That is a bit tricky, since we need to do that in hand-coded AArch32
+machine language, shared by all 64-bit SoCs. To avoid build dependencies
+in this mess, we always provide two addresses to choose from, and just
+give identical values for all other SoCs. This allows the same code to
+run on all 64-bit SoCs, and controls this switch behaviour purely from
+Kconfig.
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+Reviewed-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ arch/arm/include/asm/arch-sunxi/boot0.h | 14 ++++++++++----
+ arch/arm/mach-sunxi/Kconfig             | 14 ++++++++++++++
+ 2 files changed, 24 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/include/asm/arch-sunxi/boot0.h b/arch/arm/include/asm/arch-sunxi/boot0.h
+index 59ea75a96b..30f5680757 100644
+--- a/arch/arm/include/asm/arch-sunxi/boot0.h
++++ b/arch/arm/include/asm/arch-sunxi/boot0.h
+@@ -16,8 +16,8 @@
+ 	b       reset
+ 	.space  0x7c
+ 
+-	.word	0xe28f0058	// add     r0, pc, #88
+-	.word	0xe59f1054	// ldr     r1, [pc, #84]
++	.word	0xe28f0070	// add     r0, pc, #112	 // @(fel_stash - .)
++	.word	0xe59f106c	// ldr     r1, [pc, #108] // fel_stash - .
+ 	.word	0xe0800001	// add     r0, r0, r1
+ 	.word	0xe580d000	// str     sp, [r0]
+ 	.word	0xe580e004	// str     lr, [r0, #4]
+@@ -28,8 +28,12 @@
+ 	.word	0xee1cef10	// mrc     15, 0, lr, cr12, cr0, {0}
+ 	.word	0xe580e010	// str     lr, [r0, #16]
+ 
+-	.word	0xe59f1024	// ldr     r1, [pc, #36] ; 0x170000a0
+-	.word	0xe59f0024	// ldr     r0, [pc, #36] ; CONFIG_*_TEXT_BASE
++	.word	0xe59f1034	// ldr     r1, [pc, #52] ; RVBAR_ADDRESS
++	.word	0xe59f0034	// ldr     r0, [pc, #52] ; SUNXI_SRAMC_BASE
++	.word	0xe5900024	// ldr     r0, [r0, #36] ; SRAM_VER_REG
++	.word	0xe21000ff	// ands    r0, r0, #255    ; 0xff
++	.word	0x159f102c	// ldrne   r1, [pc, #44] ; RVBAR_ALTERNATIVE
++	.word	0xe59f002c	// ldr     r0, [pc, #44] ; CONFIG_*TEXT_BASE
+ 	.word	0xe5810000	// str     r0, [r1]
+ 	.word	0xf57ff04f	// dsb     sy
+ 	.word	0xf57ff06f	// isb     sy
+@@ -41,6 +45,8 @@
+ 	.word	0xeafffffd	// b       @wfi
+ 
+ 	.word	CONFIG_SUNXI_RVBAR_ADDRESS	// writable RVBAR mapping addr
++	.word	SUNXI_SRAMC_BASE
++	.word	CONFIG_SUNXI_RVBAR_ALTERNATIVE	// address for die variant
+ #ifdef CONFIG_SPL_BUILD
+ 	.word	CONFIG_SPL_TEXT_BASE
+ #else
+diff --git a/arch/arm/mach-sunxi/Kconfig b/arch/arm/mach-sunxi/Kconfig
+index 71a413108f..6dcbb096f7 100644
+--- a/arch/arm/mach-sunxi/Kconfig
++++ b/arch/arm/mach-sunxi/Kconfig
+@@ -141,6 +141,20 @@ config SUNXI_RVBAR_ADDRESS
+ 	entry point when switching to AArch64. This store is on different
+ 	addresses, depending on the SoC.
+ 
++config SUNXI_RVBAR_ALTERNATIVE
++	hex
++	depends on ARM64
++	default 0x08100040 if MACH_SUN50I_H616
++	default SUNXI_RVBAR_ADDRESS
++	---help---
++	The H616 die exists in at least two variants, with one having the
++	RVBAR registers at a different address. If the SoC variant ID
++	(stored in SRAM_VER_REG[7:0]) is not 0, we need to use the
++	other address.
++	Set this alternative address to the same as the normal address
++	for all other SoCs, so the content of the SRAM_VER_REG becomes
++	irrelevant there, and we can use the same code.
++
+ config SUNXI_A64_TIMER_ERRATUM
+ 	bool
+ 
+-- 
+2.43.0
+

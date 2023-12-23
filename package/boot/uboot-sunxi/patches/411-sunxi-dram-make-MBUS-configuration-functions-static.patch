@@ -1,0 +1,90 @@
+From fe93051301f97d35c3b144987ad2c9efce6184f8 Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Wed, 7 Jun 2023 01:07:41 +0100
+Subject: [PATCH 11/15] sunxi: dram: make MBUS configuration functions static
+
+The usage of the C keyword "inline" seems to be a common
+misunderstanding: it's a *hint* only, and modern compilers will inline
+(or not) functions based on their own judgement and provided compiler
+options.
+So while marking functions as "inline" does not do much, missing the
+"static" keyword will force to compiler to spell out a version of the
+function for potential external callers, which actually increases the
+code size (though hopefully the linker will drop the function).
+
+Change the "inline" attribute for the mbus_configure_port() functions in
+some Allwinner DRAM drivers to "static", so that the explicit version
+can actually be dropped from the object file, reducing the code size.
+
+"static inline" has a use case in header files, where it avoids a warning
+if a .c file including this header does not use the particular function.
+In a .c file itself "static inline" is not useful otherwise, so just use
+static here as well.
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+Reviewed-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ arch/arm/mach-sunxi/dram_sun50i_h6.c   |  3 ++-
+ arch/arm/mach-sunxi/dram_sun50i_h616.c |  2 +-
+ arch/arm/mach-sunxi/dram_sunxi_dw.c    | 18 +++++++++---------
+ 3 files changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm/mach-sunxi/dram_sun50i_h6.c b/arch/arm/mach-sunxi/dram_sun50i_h6.c
+index b332f3a3e4..bff2e42513 100644
+--- a/arch/arm/mach-sunxi/dram_sun50i_h6.c
++++ b/arch/arm/mach-sunxi/dram_sun50i_h6.c
+@@ -93,7 +93,8 @@ enum {
+ 	MBUS_QOS_HIGH,
+ 	MBUS_QOS_HIGHEST
+ };
+-inline void mbus_configure_port(u8 port,
++
++static void mbus_configure_port(u8 port,
+ 				bool bwlimit,
+ 				bool priority,
+ 				u8 qos,
+diff --git a/arch/arm/mach-sunxi/dram_sun50i_h616.c b/arch/arm/mach-sunxi/dram_sun50i_h616.c
+index 1f9416d6ea..02f6b2a06d 100644
+--- a/arch/arm/mach-sunxi/dram_sun50i_h616.c
++++ b/arch/arm/mach-sunxi/dram_sun50i_h616.c
+@@ -31,7 +31,7 @@ enum {
+ 	MBUS_QOS_HIGHEST
+ };
+ 
+-inline void mbus_configure_port(u8 port,
++static void mbus_configure_port(u8 port,
+ 				bool bwlimit,
+ 				bool priority,
+ 				u8 qos,
+diff --git a/arch/arm/mach-sunxi/dram_sunxi_dw.c b/arch/arm/mach-sunxi/dram_sunxi_dw.c
+index 4af5922f33..9382d3d0be 100644
+--- a/arch/arm/mach-sunxi/dram_sunxi_dw.c
++++ b/arch/arm/mach-sunxi/dram_sunxi_dw.c
+@@ -81,15 +81,15 @@ enum {
+ 	MBUS_QOS_HIGHEST
+ };
+ 
+-static inline void mbus_configure_port(u8 port,
+-				       bool bwlimit,
+-				       bool priority,
+-				       u8 qos,         /* MBUS_QOS_LOWEST .. MBUS_QOS_HIGEST */
+-				       u8 waittime,    /* 0 .. 0xf */
+-				       u8 acs,         /* 0 .. 0xff */
+-				       u16 bwl0,       /* 0 .. 0xffff, bandwidth limit in MB/s */
+-				       u16 bwl1,
+-				       u16 bwl2)
++static void mbus_configure_port(u8 port,
++				bool bwlimit,
++				bool priority,
++				u8 qos,         /* MBUS_QOS_LOWEST .. MBUS_QOS_HIGEST */
++				u8 waittime,    /* 0 .. 0xf */
++				u8 acs,         /* 0 .. 0xff */
++				u16 bwl0,       /* 0 .. 0xffff, bandwidth limit in MB/s */
++				u16 bwl1,
++				u16 bwl2)
+ {
+ 	struct sunxi_mctl_com_reg * const mctl_com =
+ 			(struct sunxi_mctl_com_reg *)SUNXI_DRAM_COM_BASE;
+-- 
+2.43.0
+

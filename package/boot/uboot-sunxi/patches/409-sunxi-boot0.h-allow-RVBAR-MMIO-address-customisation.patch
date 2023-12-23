@@ -1,0 +1,65 @@
+From 9a489a8a5b7eeb9d401a4f06c797cd8482439cbe Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Thu, 8 Dec 2022 20:33:57 +0000
+Subject: [PATCH 09/15] sunxi: boot0.h: allow RVBAR MMIO address customisation
+
+To switch the ARMv8 Allwinner SoCs into the 64-bit AArch64 ISA, we need
+to program the 64-bit start code address into an MMIO mapped register
+that shadows the architectural RVBAR register.
+This address is SoC specific, with just two versions out there so far.
+Now a third address emerged, on a *variant* of an existing SoC (H616).
+
+Change the boot0.h start code to make this address a Kconfig
+selectable option, to allow easier maintenance.
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+Reviewed-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+---
+ arch/arm/include/asm/arch-sunxi/boot0.h |  7 ++-----
+ arch/arm/mach-sunxi/Kconfig             | 12 ++++++++++++
+ 2 files changed, 14 insertions(+), 5 deletions(-)
+
+diff --git a/arch/arm/include/asm/arch-sunxi/boot0.h b/arch/arm/include/asm/arch-sunxi/boot0.h
+index 46b7e073b5..59ea75a96b 100644
+--- a/arch/arm/include/asm/arch-sunxi/boot0.h
++++ b/arch/arm/include/asm/arch-sunxi/boot0.h
+@@ -39,11 +39,8 @@
+ 	.word	0xf57ff06f	// isb     sy
+ 	.word	0xe320f003	// wfi
+ 	.word	0xeafffffd	// b       @wfi
+-#ifndef CONFIG_SUN50I_GEN_H6
+-	.word	0x017000a0	// writeable RVBAR mapping address
+-#else
+-	.word	0x09010040	// writeable RVBAR mapping address
+-#endif
++
++	.word	CONFIG_SUNXI_RVBAR_ADDRESS	// writable RVBAR mapping addr
+ #ifdef CONFIG_SPL_BUILD
+ 	.word	CONFIG_SPL_TEXT_BASE
+ #else
+diff --git a/arch/arm/mach-sunxi/Kconfig b/arch/arm/mach-sunxi/Kconfig
+index 6be8a4de53..71a413108f 100644
+--- a/arch/arm/mach-sunxi/Kconfig
++++ b/arch/arm/mach-sunxi/Kconfig
+@@ -129,6 +129,18 @@ config SUNXI_SRAM_ADDRESS
+ 	Some newer SoCs map the boot ROM at address 0 instead and move the
+ 	SRAM to a different address.
+ 
++config SUNXI_RVBAR_ADDRESS
++	hex
++	depends on ARM64
++	default 0x09010040 if SUN50I_GEN_H6
++	default 0x017000a0
++	---help---
++	The read-only RVBAR system register holds the address of the first
++	instruction to execute after a reset. Allwinner cores provide a
++	writable MMIO backing store for this register, to allow to set the
++	entry point when switching to AArch64. This store is on different
++	addresses, depending on the SoC.
++
+ config SUNXI_A64_TIMER_ERRATUM
+ 	bool
+ 
+-- 
+2.43.0
+

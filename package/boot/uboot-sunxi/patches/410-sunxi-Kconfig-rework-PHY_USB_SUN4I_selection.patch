@@ -1,0 +1,160 @@
+From fcd9220d66ee859969ccaa0b2cadbf6b7376f3c5 Mon Sep 17 00:00:00 2001
+From: Andre Przywara <andre.przywara@arm.com>
+Date: Mon, 12 Jun 2023 00:32:37 +0100
+Subject: [PATCH] sunxi: Kconfig: rework PHY_USB_SUN4I selection
+
+At the moment we use "select" in each Allwinner SoC's Kconfig section to
+include the USB PHY driver in the build. This means it cannot be disabled
+via Kconfig, although USB is not really a strictly required core
+functionality, and a particular board might not even include USB ports.
+
+Rework the Kconfig part by removing the "select" lines for each SoC's
+section, and instead letting it default to "y" in the PHY driver section
+itself. We use "depends on !" to exclude the few SoCs we don't support
+(yet). The Allwinner V3s does not enable USB (PHY) support at the moment,
+even though it should work: let the PHY default to "n" to keep the
+current behaviour.
+
+Also the MUSB USB driver directly calls some functions from the PHY
+driver, so let the former depend on the PHY driver.
+
+Signed-off-by: Andre Przywara <andre.przywara@arm.com>
+Reviewed-by: Jernej Skrabec <jernej.skrabec@gmail.com>
+Tested-by: Sam Edwards <CFSworks@gmail.com>
+---
+ arch/arm/mach-sunxi/Kconfig   | 11 -----------
+ drivers/phy/allwinner/Kconfig |  6 +++++-
+ drivers/usb/musb-new/Kconfig  |  1 +
+ 3 files changed, 6 insertions(+), 12 deletions(-)
+
+diff --git a/arch/arm/mach-sunxi/Kconfig b/arch/arm/mach-sunxi/Kconfig
+index 6dcbb096f74..e0b1bde35a9 100644
+--- a/arch/arm/mach-sunxi/Kconfig
++++ b/arch/arm/mach-sunxi/Kconfig
+@@ -207,7 +207,6 @@ endif
+ 
+ config MACH_SUNXI_H3_H5
+ 	bool
+-	select PHY_SUN4I_USB
+ 	select SUNXI_DE2
+ 	select SUNXI_DRAM_DW
+ 	select SUNXI_DRAM_DW_32BIT
+@@ -236,7 +235,6 @@ config MACH_SUNIV
+ config MACH_SUN4I
+ 	bool "sun4i (Allwinner A10)"
+ 	select CPU_V7A
+-	select PHY_SUN4I_USB
+ 	select DRAM_SUN4I
+ 	select SUNXI_GEN_SUN4I
+ 	select SUPPORT_SPL
+@@ -247,7 +245,6 @@ config MACH_SUN5I
+ 	bool "sun5i (Allwinner A13)"
+ 	select CPU_V7A
+ 	select DRAM_SUN4I
+-	select PHY_SUN4I_USB
+ 	select SUNXI_GEN_SUN4I
+ 	select SUPPORT_SPL
+ 	imply SPL_SYS_I2C_LEGACY
+@@ -261,7 +258,6 @@ config MACH_SUN6I
+ 	select ARCH_SUPPORT_PSCI
+ 	select SPL_ARMV7_SET_CORTEX_SMPEN
+ 	select DRAM_SUN6I
+-	select PHY_SUN4I_USB
+ 	select SPL_I2C
+ 	select SUN6I_PRCM
+ 	select SUNXI_GEN_SUN6I
+@@ -277,7 +273,6 @@ config MACH_SUN7I
+ 	select ARCH_SUPPORT_PSCI
+ 	select SPL_ARMV7_SET_CORTEX_SMPEN
+ 	select DRAM_SUN4I
+-	select PHY_SUN4I_USB
+ 	select SUNXI_GEN_SUN4I
+ 	select SUPPORT_SPL
+ 	select ARMV7_BOOT_SEC_DEFAULT if OLD_SUNXI_KERNEL_COMPAT
+@@ -291,7 +286,6 @@ config MACH_SUN8I_A23
+ 	select CPU_V7_HAS_VIRT
+ 	select ARCH_SUPPORT_PSCI
+ 	select DRAM_SUN8I_A23
+-	select PHY_SUN4I_USB
+ 	select SPL_I2C
+ 	select SUNXI_GEN_SUN6I
+ 	select SUPPORT_SPL
+@@ -305,7 +299,6 @@ config MACH_SUN8I_A33
+ 	select CPU_V7_HAS_VIRT
+ 	select ARCH_SUPPORT_PSCI
+ 	select DRAM_SUN8I_A33
+-	select PHY_SUN4I_USB
+ 	select SPL_I2C
+ 	select SUNXI_GEN_SUN6I
+ 	select SUPPORT_SPL
+@@ -316,7 +309,6 @@ config MACH_SUN8I_A83T
+ 	bool "sun8i (Allwinner A83T)"
+ 	select CPU_V7A
+ 	select DRAM_SUN8I_A83T
+-	select PHY_SUN4I_USB
+ 	select SPL_I2C
+ 	select SUNXI_GEN_SUN6I
+ 	select MMC_SUNXI_HAS_NEW_MODE
+@@ -344,7 +336,6 @@ config MACH_SUN8I_R40
+ 	select SUPPORT_SPL
+ 	select SUNXI_DRAM_DW
+ 	select SUNXI_DRAM_DW_32BIT
+-	select PHY_SUN4I_USB
+ 	imply SPL_SYS_I2C_LEGACY
+ 
+ config MACH_SUN8I_V3S
+@@ -372,7 +363,6 @@ config MACH_SUN9I
+ config MACH_SUN50I
+ 	bool "sun50i (Allwinner A64)"
+ 	select ARM64
+-	select PHY_SUN4I_USB
+ 	select SUN6I_PRCM
+ 	select SUNXI_DE2
+ 	select SUNXI_GEN_SUN6I
+@@ -395,7 +385,6 @@ config MACH_SUN50I_H5
+ config MACH_SUN50I_H6
+ 	bool "sun50i (Allwinner H6)"
+ 	select ARM64
+-	select PHY_SUN4I_USB
+ 	select DRAM_SUN50I_H6
+ 	select SUN50I_GEN_H6
+ 
+diff --git a/drivers/phy/allwinner/Kconfig b/drivers/phy/allwinner/Kconfig
+index f8f1e99c4f5..565b4617b01 100644
+--- a/drivers/phy/allwinner/Kconfig
++++ b/drivers/phy/allwinner/Kconfig
+@@ -4,6 +4,10 @@
+ config PHY_SUN4I_USB
+ 	bool "Allwinner Sun4I USB PHY driver"
+ 	depends on ARCH_SUNXI
++	depends on !MACH_SUN9I
++	depends on !MACH_SUN50I_H616
++	default n if MACH_SUN8I_V3S
++	default y
+ 	select DM_REGULATOR
+ 	select PHY
+ 	help
+@@ -11,7 +15,7 @@ config PHY_SUN4I_USB
+ 	  sunxi SoCs.
+ 
+ 	  This driver controls the entire USB PHY block, both the USB OTG
+-	  parts, as well as the 2 regular USB 2 host PHYs.
++	  parts, as well as the regular USB HCI host PHYs.
+ 
+ config INITIAL_USB_SCAN_DELAY
+ 	int "Delay initial USB scan by x ms to allow builtin devices to init"
+diff --git a/drivers/usb/musb-new/Kconfig b/drivers/usb/musb-new/Kconfig
+index 51f876cd711..c52afd41a75 100644
+--- a/drivers/usb/musb-new/Kconfig
++++ b/drivers/usb/musb-new/Kconfig
+@@ -68,6 +68,7 @@ config USB_MUSB_PIC32
+ config USB_MUSB_SUNXI
+ 	bool "Enable sunxi OTG / DRC USB controller"
+ 	depends on ARCH_SUNXI
++	depends on PHY_SUN4I_USB
+ 	select USB_MUSB_PIO_ONLY
+ 	default y
+ 	---help---
+-- 
+GitLab
+
