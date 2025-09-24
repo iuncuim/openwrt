@@ -1,0 +1,193 @@
+diff --git a/dts/upstream/src/arm64/allwinner/sun50i-h618-walnutpi-1b.dts b/dts/upstream/src/arm64/allwinner/sun50i-h618-walnutpi-1b.dts
+new file mode 100644
+index 00000000000..a6f21b862b6
+--- /dev/null
++++ b/dts/upstream/src/arm64/allwinner/sun50i-h618-walnutpi-1b.dts
+@@ -0,0 +1,149 @@
++// SPDX-License-Identifier: (GPL-2.0+ or MIT)
++
++/dts-v1/;
++
++#include "sun50i-h616.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/leds/common.h>
++
++/ {
++	model = "WalnutPi 1B";
++	compatible = "walnutpi,1b", "allwinner,sun50i-h616";
++
++	aliases {
++		mmc0 = &mmc0;
++		mmc2 = &mmc2;
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	reg_vcc5v: vcc5v {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++};
++
++&cpu0 {
++	cpu-supply = <&reg_dcdc2>;
++	status = "okay";
++};
++
++&cpu1 {
++	cpu-supply = <&reg_dcdc2>;
++	status = "okay";
++};
++
++&cpu2 {
++	cpu-supply = <&reg_dcdc2>;
++	status = "okay";
++};
++
++&cpu3 {
++	cpu-supply = <&reg_dcdc2>;
++	status = "okay";
++};
++
++&emac1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&rmii_pins>;
++	phy-mode = "rmii";
++	phy-handle = <&rmii_phy>;
++	phy-supply = <&reg_aldo1>;
++	allwinner,rx-delay-ps = <3100>;
++	allwinner,tx-delay-ps = <700>;
++ 	status = "okay";
++ };
++ 
++&mdio1 {
++	rmii_phy: ethernet-phy@16 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <16>;
++	};
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_dldo1>;
++	broken-cd;
++	bus-width = <4>;
++	status = "okay";
++};
++
++&mmc1 {
++	vmmc-supply = <&reg_dldo1>;
++	broken-cd;
++	bus-width = <4>;
++	status = "okay";
++};
++
++&mmc2 {
++	vmmc-supply = <&reg_dldo1>;
++	bus-width = <8>;
++	non-removable;
++	cap-mmc-hw-reset;
++	status = "okay";
++};
++
++&r_i2c {
++	status = "okay";
++
++	axp313: pmic@36 {
++		compatible = "x-powers,axp313a";
++		reg = <0x36>;
++		wakeup-source;
++
++		regulators {
++			reg_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <1160000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-gpu";
++			};
++
++			reg_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <1160000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpu";
++			};
++
++			reg_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1100000>;
++				regulator-max-microvolt = <1100000>;
++				regulator-name = "vdd-dram";
++			};
++
++			reg_aldo1: aldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-sys";
++			};
++
++			reg_dldo1: dldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc3v3-ext";
++			};
++		};
++	};
++};
++
++&i2c3 {
++	status = "okay";
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_ph_pins>;
++	status = "okay";
++};
+diff --git a/configs/walnutpi_1b_defconfig b/configs/walnutpi_1b_defconfig
+new file mode 100644
+index 0000000000..5e87cb3838
+--- /dev/null
++++ b/configs/walnutpi_1b_defconfig
+@@ -0,0 +1,29 @@
++CONFIG_ARM=y
++CONFIG_ARCH_SUNXI=y
++CONFIG_DEFAULT_DEVICE_TREE="allwinner/sun50i-h618-walnutpi-1b"
++CONFIG_SPL=y
++CONFIG_DRAM_SUNXI_DX_ODT=0x08080808
++CONFIG_DRAM_SUNXI_DX_DRI=0x0e0e0e0e
++CONFIG_DRAM_SUNXI_CA_DRI=0x0e0e
++CONFIG_DRAM_SUNXI_ODT_EN=0xaaaaeeee
++CONFIG_DRAM_SUNXI_TPR6=0x3300c080
++CONFIG_DRAM_SUNXI_TPR10=0x402f0663
++CONFIG_DRAM_SUNXI_TPR11=0x24242624
++CONFIG_DRAM_SUNXI_TPR12=0x0f0f100f
++CONFIG_MACH_SUN50I_H616=y
++CONFIG_SUNXI_DRAM_H616_LPDDR4=y
++CONFIG_DRAM_CLK=792
++CONFIG_R_I2C_ENABLE=y
++# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_SPL_I2C=y
++CONFIG_SPL_SYS_I2C_LEGACY=y
++CONFIG_SYS_I2C_MVTWSI=y
++CONFIG_SYS_I2C_SLAVE=0x7f
++CONFIG_SYS_I2C_SPEED=100000
++CONFIG_SUN8I_EMAC=y
++CONFIG_I2C3_ENABLE=y
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_OHCI_HCD=y
++CONFIG_USB_MUSB_GADGET=y
++CONFIG_AXP313_POWER=y
++CONFIG_AXP_DCDC3_VOLT=1100
+-- 
+2.42.0
+

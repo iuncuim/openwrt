@@ -9,9 +9,9 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/kernel.mk
 
-PKG_VERSION:=2024.01
+PKG_VERSION:=2025.07
 
-PKG_HASH:=b99611f1ed237bf3541bdc8434b68c96a6e05967061f992443cb30aabebef5b3
+PKG_HASH:=0f933f6c5a426895bf306e93e6ac53c60870e4b54cda56d95211bec99e63bec7
 
 PKG_MAINTAINER:=Zoltan HERPAI <wigyori@uid0.hu>
 
@@ -354,6 +354,15 @@ define U-Boot/orangepi_zero3
   ATF:=h616
 endef
 
+define U-Boot/walnutpi_1b
+  BUILD_SUBTARGET:=cortexa53
+  NAME:=Walnut Pi 1b
+  BUILD_DEVICES:=walnutpi_walnutpi-1b
+  DEPENDS:=+PACKAGE_u-boot-walnutpi_1b:trusted-firmware-a-sunxi-h616
+  UENV:=h616
+  ATF:=h616
+endef
+
 define U-Boot/Bananapi_M2_Ultra
   BUILD_SUBTARGET:=cortexa7
   NAME:=Bananapi M2 Ultra
@@ -419,6 +428,7 @@ UBOOT_TARGETS := \
 	orangepi_pc2 \
 	orangepi_zero2 \
 	orangepi_zero3 \
+	walnutpi_1b \
 	pangolin \
 	pine64_plus \
 	Sinovoip_BPI_M3 \

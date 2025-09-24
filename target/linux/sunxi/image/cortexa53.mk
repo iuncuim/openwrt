@@ -140,3 +140,11 @@ define Device/xunlong_orangepi-zero-plus
   $(Device/sun50i-h5)
 endef
 TARGET_DEVICES += xunlong_orangepi-zero-plus
+
+define Device/walnutpi_walnutpi-1b
+  DEVICE_VENDOR := Walnutpi
+  DEVICE_MODEL := Walnut Pi 1B
+  DEVICE_PACKAGES := uwe5622-firmware
+  $(Device/sun50i-h618)
+endef
+TARGET_DEVICES += walnutpi_walnutpi-1b
