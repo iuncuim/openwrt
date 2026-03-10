@@ -1,0 +1,663 @@
+From fc5c5edcb2b0bbcf6001c9eb6ab6c5688d0231a5 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Wed, 11 Feb 2026 16:50:29 +0800
+Subject: [PATCH 02/11] thermal
+
+---
+ .../thermal/allwinner,sun8i-a83t-ths.yaml     |  56 ++++-
+ .../arm64/boot/dts/allwinner/sun55i-a523.dtsi | 162 +++++++++++++
+ drivers/thermal/sun8i_thermal.c               | 220 +++++++++++++++---
+ 3 files changed, 409 insertions(+), 29 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/thermal/allwinner,sun8i-a83t-ths.yaml b/Documentation/devicetree/bindings/thermal/allwinner,sun8i-a83t-ths.yaml
+index dad8de900..c160ff1a8 100644
+--- a/Documentation/devicetree/bindings/thermal/allwinner,sun8i-a83t-ths.yaml
++++ b/Documentation/devicetree/bindings/thermal/allwinner,sun8i-a83t-ths.yaml
+@@ -24,18 +24,23 @@ properties:
+       - allwinner,sun50i-h5-ths
+       - allwinner,sun50i-h6-ths
+       - allwinner,sun50i-h616-ths
++      - allwinner,sun55i-a523-ths0
++      - allwinner,sun55i-a523-ths1
+ 
+   clocks:
+     minItems: 1
+     items:
+       - description: Bus Clock
+       - description: Module Clock
++      - description: GPADC Clock
+ 
+   clock-names:
+     minItems: 1
++    maxItems: 2
+     items:
+       - const: bus
+       - const: mod
++      - const: gpadc
+ 
+   reg:
+     maxItems: 1
+@@ -47,11 +52,16 @@ properties:
+     maxItems: 1
+ 
+   nvmem-cells:
+-    maxItems: 1
+-    description: Calibration data for thermal sensors
++    minItems: 1
++    items:
++      - description: Calibration data for thermal sensors
++      - description: Additional cell in case of separate calibration data
+ 
+   nvmem-cell-names:
+-    const: calibration
++    minItems: 1
++    items:
++      - const: calibration
++      - const: calibration-second-part
+ 
+   allwinner,sram:
+     maxItems: 1
+@@ -107,6 +117,7 @@ allOf:
+             enum:
+               - allwinner,sun8i-h3-ths
+               - allwinner,sun20i-d1-ths
++              - allwinner,sun55i-a523-ths0
+ 
+     then:
+       properties:
+@@ -132,6 +143,32 @@ allOf:
+         - clock-names
+         - resets
+ 
++  - if:
++      properties:
++        compatible:
++          contains:
++            enum:
++              - allwinner,sun55i-a523-ths0
++              - allwinner,sun55i-a523-ths1
++    then:
++      properties:
++        clocks:
++          minItems: 2
++        clock-names:
++          enum: [ bus, gpadc ]
++        nvmem-cells:
++          minItems: 2
++        nvmem-cell-names:
++          minItems: 2
++    else:
++      properties:
++        nvmem-cells:
++          maxItems: 1
++        nvmem-cell-names:
++          maxItems: 1
++          items:
++            - const: calibration
++
+ required:
+   - compatible
+   - reg
+@@ -176,4 +213,17 @@ examples:
+          #thermal-sensor-cells = <1>;
+     };
+ 
++  - |
++    thermal-sensor@2009400 {
++      compatible = "allwinner,sun55i-a523-ths1";
++      reg = <0x02009400 0x400>;
++      interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
++      clocks = <&ccu CLK_BUS_THS>, <&ccu CLK_GPADC1>;
++      clock-names = "bus", "gpadc";
++      resets = <&ccu RST_BUS_THS>;
++      nvmem-cells = <&ths_calibration0>, <&ths_calibration1>;
++      nvmem-cell-names = "calibration",
++             "calibration-second-part";
++      #thermal-sensor-cells = <1>;
++    };
+ ...
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index ee485899b..81ed10e39 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -7,6 +7,7 @@
+ #include <dt-bindings/clock/sun55i-a523-r-ccu.h>
+ #include <dt-bindings/reset/sun55i-a523-ccu.h>
+ #include <dt-bindings/reset/sun55i-a523-r-ccu.h>
++#include <dt-bindings/thermal/thermal.h>
+ 
+ / {
+ 	interrupt-parent = <&gic>;
+@@ -22,6 +23,7 @@ cpu0: cpu@0 {
+ 			device_type = "cpu";
+ 			reg = <0x000>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu1: cpu@100 {
+@@ -29,6 +31,7 @@ cpu1: cpu@100 {
+ 			device_type = "cpu";
+ 			reg = <0x100>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu2: cpu@200 {
+@@ -36,6 +39,7 @@ cpu2: cpu@200 {
+ 			device_type = "cpu";
+ 			reg = <0x200>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu3: cpu@300 {
+@@ -43,6 +47,7 @@ cpu3: cpu@300 {
+ 			device_type = "cpu";
+ 			reg = <0x300>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu4: cpu@400 {
+@@ -50,6 +55,7 @@ cpu4: cpu@400 {
+ 			device_type = "cpu";
+ 			reg = <0x400>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu5: cpu@500 {
+@@ -57,6 +63,7 @@ cpu5: cpu@500 {
+ 			device_type = "cpu";
+ 			reg = <0x500>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu6: cpu@600 {
+@@ -64,6 +71,7 @@ cpu6: cpu@600 {
+ 			device_type = "cpu";
+ 			reg = <0x600>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 
+ 		cpu7: cpu@700 {
+@@ -71,6 +79,7 @@ cpu7: cpu@700 {
+ 			device_type = "cpu";
+ 			reg = <0x700>;
+ 			enable-method = "psci";
++			#cooling-cells = <2>;
+ 		};
+ 	};
+ 
+@@ -171,6 +180,48 @@ ccu: clock-controller@2001000 {
+ 			#reset-cells = <1>;
+ 		};
+ 
++		ths1: thermal-sensor@2009400 {
++			compatible = "allwinner,sun55i-a523-ths1";
++			reg = <0x02009400 0x400>;
++			interrupts = <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_THS>, <&ccu CLK_GPADC1>;
++			clock-names = "bus", "gpadc";
++			resets = <&ccu RST_BUS_THS>;
++			nvmem-cells = <&ths_calibration0>, <&ths_calibration1>;
++			nvmem-cell-names = "calibration",
++				     "calibration-second-part";
++			#thermal-sensor-cells = <1>;
++		};
++
++		ths0: thermal-sensor@200a000 {
++			compatible = "allwinner,sun55i-a523-ths0";
++			reg = <0x0200a000 0x400>;
++			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_THS>, <&ccu CLK_GPADC0>;
++			clock-names = "bus", "gpadc";
++			resets = <&ccu RST_BUS_THS>;
++			nvmem-cells = <&ths_calibration0>, <&ths_calibration1>;
++			nvmem-cell-names = "calibration",
++				     "calibration-second-part";
++			#thermal-sensor-cells = <0>;
++		};
++
++		sid: efuse@3006000 {
++ 			compatible = "allwinner,sun55i-a523-sid",
++ 				     "allwinner,sun50i-a64-sid";
++ 			reg = <0x03006000 0x1000>;
++ 			#address-cells = <1>;
++ 			#size-cells = <1>;
++
++			ths_calibration0: ths-calibration0@38 {
++				reg = <0x38 0x8>;
++			};
++
++			ths_calibration1: ths-calibration1@44 {
++				reg = <0x44 0x8>;
++			};
++ 		};
++
+ 		mmc0: mmc@4020000 {
+ 			compatible = "allwinner,sun55i-a523-mmc",
+ 				     "allwinner,sun20i-d1-mmc";
+@@ -595,4 +646,115 @@ rtc: rtc@7090000 {
+ 			#clock-cells = <1>;
+ 		};
+ 	};
++
++	thermal-zones {
++		cpu0_thermal: cpu0-thermal {
++			polling-delay-passive = <100>;
++			polling-delay = <1000>;
++			thermal-sensors = <&ths1 1>;
++			sustainable-power = <1200>;
++
++			trips {
++				cpu0_threshold: cpu-trip-0 {
++					temperature = <70000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				cpu0_target: cpu-trip-1 {
++					temperature = <90000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				cpu0_critical: cpu-trip-2 {
++					temperature = <110000>;
++					type = "critical";
++					hysteresis = <0>;
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu0_target>;
++					cooling-device = <&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		cpu4_thermal: cpu4-thermal {
++			polling-delay-passive = <100>;
++			polling-delay = <1000>;
++			thermal-sensors = <&ths1 0>;
++			sustainable-power = <1600>;
++
++			trips {
++				cpu4_threshold: cpu-trip-0 {
++					temperature = <70000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				cpu4_target: cpu-trip-1 {
++					temperature = <90000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				cpu4_critical: cpu-trip-2 {
++					temperature = <110000>;
++					type = "critical";
++					hysteresis = <0>;
++				};
++			};
++
++			cooling-maps {
++				map0 {
++					trip = <&cpu4_target>;
++					cooling-device = <&cpu4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu6 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
++							 <&cpu7 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
++				};
++			};
++		};
++
++		gpu-thermal {
++			polling-delay-passive = <100>;
++			polling-delay = <1000>;
++			thermal-sensors = <&ths1 2>;
++			sustainable-power = <2400>;
++
++			gpu-trips {
++				gpu_temp_threshold: gpu-trip-0 {
++					temperature = <60000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				gpu_temp_target: gpu-trip-1 {
++					temperature = <90000>;
++					type = "passive";
++					hysteresis = <0>;
++				};
++				gpu_temp_critical: gpu-trip-2 {
++					temperature = <110000>;
++					type = "critical";
++					hysteresis = <0>;
++				};
++			};
++		};
++
++		ddr-thermal {
++			polling-delay-passive = <0>;
++			polling-delay = <0>;
++			thermal-sensors = <&ths0>;
++
++			trips {
++				ddr_temp_critical: ddr-trip-0 {
++					temperature = <110000>;
++					type = "critical";
++					hysteresis = <0>;
++				};
++			};
++		};
++	};
+ };
+diff --git a/drivers/thermal/sun8i_thermal.c b/drivers/thermal/sun8i_thermal.c
+index 3203d8bd1..98b8c067b 100644
+--- a/drivers/thermal/sun8i_thermal.c
++++ b/drivers/thermal/sun8i_thermal.c
+@@ -58,6 +58,12 @@
+ #define SUN50I_H6_THS_PC_TEMP_PERIOD(x)		((GENMASK(19, 0) & (x)) << 12)
+ #define SUN50I_H6_THS_DATA_IRQ_STS(x)		BIT(x)
+ 
++#define SUN55I_A523_DELIMITER			0x7c8
++#define SUN55I_A523_OFFSET_ABOVE		2736
++#define SUN55I_A523_OFFSET_BELOW		2825
++#define SUN55I_A523_SCALE_ABOVE			74
++#define SUN55I_A523_SCALE_BELOW			65
++
+ struct tsensor {
+ 	struct ths_device		*tmdev;
+ 	struct thermal_zone_device	*tzd;
+@@ -65,6 +71,7 @@ struct tsensor {
+ };
+ 
+ struct ths_thermal_chip {
++	bool		has_gpadc_clk;
+ 	bool            has_mod_clk;
+ 	bool            has_bus_clk_reset;
+ 	bool		needs_sram;
+@@ -88,6 +95,7 @@ struct ths_device {
+ 	struct regmap_field			*sram_regmap_field;
+ 	struct reset_control			*reset;
+ 	struct clk				*bus_clk;
++	struct clk				*gpadc_clk;
+ 	struct clk                              *mod_clk;
+ 	struct tsensor				sensor[MAX_SENSOR_NUM];
+ };
+@@ -113,6 +121,15 @@ static int sun50i_h5_calc_temp(struct ths_device *tmdev,
+ 		return -1590 * reg / 10 + 276000;
+ }
+ 
++static int sun55i_a523_calc_temp(struct ths_device *tmdev,
++				 int id, int reg)
++{
++	if (reg >= SUN55I_A523_DELIMITER)
++		return SUN55I_A523_SCALE_ABOVE * (SUN55I_A523_OFFSET_ABOVE - reg);
++	else
++		return SUN55I_A523_SCALE_BELOW * (SUN55I_A523_OFFSET_BELOW - reg);
++}
++
+ static int sun8i_ths_get_temp(struct thermal_zone_device *tz, int *temp)
+ {
+ 	struct tsensor *s = thermal_zone_device_priv(tz);
+@@ -298,45 +315,163 @@ static int sun50i_h6_ths_calibrate(struct ths_device *tmdev,
+ 	return 0;
+ }
+ 
+-static int sun8i_ths_calibrate(struct ths_device *tmdev)
++/*
++ * The A523 nvmem calibration values. The ths1_3 is not used as it
++ * doesn't have its own sensor and doesn't have any internal switch.
++ * Instead, the value from the ths1_2 sensor is used, which gives the
++ * illusion of an independent sensor for NPU and GPU when using
++ * different calibration values.
++ *
++ * efuse layout 0x38-0x3F (caldata[0..3]):
++ *     caldata[0]      caldata[1]      caldata[2]      caldata[3]
++ * 0               16      24      32  36          48          60 64
++ * +---------------+---------------+---------------+---------------+
++ * |               |       |   temp    |  ths1_0   |  ths1_1   |   +
++ * +---------------+---------------+---------------+---------------+
++ *
++ * efuse layout 0x44-0x4B (caldata[4..7]):
++ *     caldata[4]      caldata[5]      caldata[6]      caldata[7]
++ * 0           12  16      24      32  36          48             64
++ * +---------------+---------------+---------------+---------------+
++ * |  ths1_2   |  ths1_3   |    ths0   |           |               +
++ * +---------------+---------------+---------------+---------------+
++ */
++static int sun55i_a523_ths_calibrate(struct ths_device *tmdev,
++				     u16 *caldata, int callen)
+ {
+-	struct nvmem_cell *calcell;
+ 	struct device *dev = tmdev->dev;
+-	u16 *caldata;
+-	size_t callen;
+-	int ret = 0;
++	int i, ft_temp;
++
++	if (!caldata[0])
++		return -EINVAL;
++
++	ft_temp = (((caldata[2] << 8) | (caldata[1] >> 8)) & FT_TEMP_MASK) * 100;
+ 
+-	calcell = nvmem_cell_get(dev, "calibration");
+-	if (IS_ERR(calcell)) {
+-		if (PTR_ERR(calcell) == -EPROBE_DEFER)
+-			return -EPROBE_DEFER;
++	for (i = 0; i < tmdev->chip->sensor_num; i++) {
++		int sensor_reg, sensor_temp, cdata, offset;
+ 		/*
+-		 * Even if the external calibration data stored in sid is
+-		 * not accessible, the THS hardware can still work, although
+-		 * the data won't be so accurate.
+-		 *
+-		 * The default value of calibration register is 0x800 for
+-		 * every sensor, and the calibration value is usually 0x7xx
+-		 * or 0x8xx, so they won't be away from the default value
+-		 * for a lot.
+-		 *
+-		 * So here we do not return error if the calibration data is
+-		 * not available, except the probe needs deferring.
++		 * Chips ths0 and ths1 have common parameters for value
++		 * calibration. To separate them we can use the number of
++		 * temperature sensors on each chip.
++		 * For ths0 this value is 1.
+ 		 */
+-		goto out;
++		if (tmdev->chip->sensor_num == 1) {
++			sensor_reg = ((caldata[5] >> 8) | (caldata[6] << 8)) & TEMP_CALIB_MASK;
++		} else {
++			switch (i) {
++			case 0:
++				sensor_reg = (caldata[2] >> 4) & TEMP_CALIB_MASK;
++				break;
++			case 1:
++				sensor_reg = caldata[3] & TEMP_CALIB_MASK;
++				break;
++			case 2:
++				sensor_reg = caldata[4] & TEMP_CALIB_MASK;
++				break;
++			default:
++				sensor_reg = 0;
++				break;
++			}
++		}
++
++		sensor_temp = tmdev->chip->calc_temp(tmdev, i, sensor_reg);
++
++		/*
++		 * Calibration data is CALIBRATE_DEFAULT - (calculated
++		 * temperature from sensor reading at factory temperature
++		 * minus actual factory temperature) * X (scale from
++		 * temperature to register values)
++		 */
++		cdata = CALIBRATE_DEFAULT -
++			((sensor_temp - ft_temp) / SUN55I_A523_SCALE_ABOVE);
++
++		if (cdata & ~TEMP_CALIB_MASK) {
++			/*
++			 * Calibration value more than 12-bit, but calibration
++			 * register is 12-bit. In this case, ths hardware can
++			 * still work without calibration, although the data
++			 * won't be so accurate.
++			 */
++			dev_warn(dev, "sensor%d is not calibrated.\n", i);
++			continue;
++		}
++
++		offset = (i % 2) * 16;
++		regmap_update_bits(tmdev->regmap,
++				   SUN50I_H6_THS_TEMP_CALIB + (i / 2 * 4),
++				   TEMP_CALIB_MASK << offset,
++				   cdata << offset);
++	}
++
++	return 0;
++}
++
++static int sun8i_ths_calibrate(struct ths_device *tmdev)
++{
++	struct nvmem_cell *calcell = NULL;
++	struct device *dev = tmdev->dev;
++	struct device_node *np = dev_of_node(dev);
++	struct property *prop;
++	const char *cellname;
++	u8 *caldata = NULL;
++	size_t callen = 0;
++	int ret = 0;
++
++	of_property_for_each_string(np, "nvmem-cell-names", prop, cellname) {
++		size_t len;
++		u8 *caldatapart;
++
++		calcell = of_nvmem_cell_get(np, cellname);
++		if (IS_ERR(calcell)) {
++			if (PTR_ERR(calcell) == -EPROBE_DEFER)
++				return -EPROBE_DEFER;
++			/*
++			 * Even if the external calibration data stored in sid is
++			 * not accessible, the THS hardware can still work, although
++			 * the data won't be so accurate.
++			 *
++			 * The default value of calibration register is 0x800 for
++			 * every sensor, and the calibration value is usually 0x7xx
++			 * or 0x8xx, so they won't be away from the default value
++			 * for a lot.
++			 *
++			 * So here we do not return error if the calibration data is
++			 * not available, except the probe needs deferring.
++			 */
++			goto out;
++		}
++
++		caldatapart = nvmem_cell_read(calcell, &len);
++		nvmem_cell_put(calcell);
++		calcell = NULL;
++		if (IS_ERR(caldatapart)) {
++			ret = PTR_ERR(caldatapart);
++			goto out;
++		}
++
++		caldata = devm_krealloc(dev, caldata, callen + len, GFP_KERNEL);
++		if (!caldata) {
++			kfree(caldatapart);
++			ret = -ENOMEM;
++			goto out;
++		}
++
++		memcpy(caldata + callen, caldatapart, len);
++		callen += len;
++		kfree(caldatapart);
+ 	}
+ 
+-	caldata = nvmem_cell_read(calcell, &callen);
+ 	if (IS_ERR(caldata)) {
+ 		ret = PTR_ERR(caldata);
+ 		goto out;
+ 	}
+ 
+-	tmdev->chip->calibrate(tmdev, caldata, callen);
++	tmdev->chip->calibrate(tmdev, (u16 *)caldata, callen);
+ 
+-	kfree(caldata);
++	devm_kfree(dev, caldata);
++	caldata = NULL;
+ out:
+-	if (!IS_ERR(calcell))
++	if (calcell && !IS_ERR(calcell))
+ 		nvmem_cell_put(calcell);
+ 	return ret;
+ }
+@@ -390,7 +525,7 @@ static int sun8i_ths_resource_init(struct ths_device *tmdev)
+ 		return PTR_ERR(tmdev->regmap);
+ 
+ 	if (tmdev->chip->has_bus_clk_reset) {
+-		tmdev->reset = devm_reset_control_get(dev, NULL);
++		tmdev->reset = devm_reset_control_get_shared(dev, NULL);
+ 		if (IS_ERR(tmdev->reset))
+ 			return PTR_ERR(tmdev->reset);
+ 
+@@ -418,6 +553,12 @@ static int sun8i_ths_resource_init(struct ths_device *tmdev)
+ 	if (ret)
+ 		return ret;
+ 
++	if (tmdev->chip->has_gpadc_clk) {
++		tmdev->gpadc_clk = devm_clk_get_enabled(&pdev->dev, "gpadc");
++		if (IS_ERR(tmdev->gpadc_clk))
++			return PTR_ERR(tmdev->gpadc_clk);
++	}
++
+ 	if (tmdev->chip->needs_sram) {
+ 		struct regmap *regmap;
+ 
+@@ -710,6 +851,31 @@ static const struct ths_thermal_chip sun50i_h616_ths = {
+ 	.calc_temp = sun8i_ths_calc_temp,
+ };
+ 
++/* The A523 has a shared reset line for both chips */
++static const struct ths_thermal_chip sun55i_a523_ths0 = {
++	.sensor_num = 1,
++	.has_bus_clk_reset = true,
++	.has_gpadc_clk = true,
++	.ft_deviation = 5000,
++	.temp_data_base = SUN50I_H6_THS_TEMP_DATA,
++	.calibrate = sun55i_a523_ths_calibrate,
++	.init = sun50i_h6_thermal_init,
++	.irq_ack = sun50i_h6_irq_ack,
++	.calc_temp = sun55i_a523_calc_temp,
++};
++
++static const struct ths_thermal_chip sun55i_a523_ths1 = {
++	.sensor_num = 3,
++	.has_bus_clk_reset = true,
++	.has_gpadc_clk = true,
++	.ft_deviation = 5000,
++	.temp_data_base = SUN50I_H6_THS_TEMP_DATA,
++	.calibrate = sun55i_a523_ths_calibrate,
++	.init = sun50i_h6_thermal_init,
++	.irq_ack = sun50i_h6_irq_ack,
++	.calc_temp = sun55i_a523_calc_temp,
++};
++
+ static const struct of_device_id of_ths_match[] = {
+ 	{ .compatible = "allwinner,sun8i-a83t-ths", .data = &sun8i_a83t_ths },
+ 	{ .compatible = "allwinner,sun8i-h3-ths", .data = &sun8i_h3_ths },
+@@ -720,6 +886,8 @@ static const struct of_device_id of_ths_match[] = {
+ 	{ .compatible = "allwinner,sun50i-h6-ths", .data = &sun50i_h6_ths },
+ 	{ .compatible = "allwinner,sun20i-d1-ths", .data = &sun20i_d1_ths },
+ 	{ .compatible = "allwinner,sun50i-h616-ths", .data = &sun50i_h616_ths },
++	{ .compatible = "allwinner,sun55i-a523-ths0", .data = &sun55i_a523_ths0 },
++	{ .compatible = "allwinner,sun55i-a523-ths1", .data = &sun55i_a523_ths1 },
+ 	{ /* sentinel */ },
+ };
+ MODULE_DEVICE_TABLE(of, of_ths_match);
+-- 
+2.53.0
+

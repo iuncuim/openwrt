@@ -36,6 +36,35 @@ define Device/sun50i-h618
   $(Device/sun50i)
 endef
 
+define Device/sun55i
+  $(call Device/FitImageLzma)
+  SUNXI_DTS_DIR := allwinner/
+  KERNEL_NAME := Image
+endef
+
+define Device/sun55i-a527
+  SOC := sun55i-a527
+  $(Device/sun55i)
+endef
+
+define Device/sun55i-h728
+  SOC := sun55i-h728
+  $(Device/sun55i)
+endef
+
+define Device/sun55i-t527
+  SOC := sun55i-t527
+  $(Device/sun55i)
+endef
+
+define Device/amediatech_x96qproplus
+  DEVICE_VENDOR := Amediatech
+  DEVICE_MODEL := X96Q Pro+
+  $(Device/sun55i-h728)
+  SUNXI_DTS := $$(SUNXI_DTS_DIR)$$(SOC)-x96qpro+
+endef
+TARGET_DEVICES += amediatech_x96qproplus
+
 define Device/friendlyarm_nanopi-neo-plus2
   DEVICE_VENDOR := FriendlyARM
   DEVICE_MODEL := NanoPi NEO Plus2
@@ -105,6 +134,27 @@ define Device/pine64_sopine-baseboard
 endef
 TARGET_DEVICES += pine64_sopine-baseboard
 
+define Device/radxa_radxa-a5e
+  DEVICE_VENDOR := Radxa
+  DEVICE_MODEL := cubie a5e
+  $(Device/sun55i-a527)
+endef
+TARGET_DEVICES += radxa_radxa-a5e
+
+define Device/walnut_walnutpi-2b
+  DEVICE_VENDOR := Walnut
+  DEVICE_MODEL := Pi 2B
+  $(Device/sun55i-t527)
+endef
+TARGET_DEVICES += walnut_walnutpi-2b
+
+define Device/xunlong_orangepi-4a
+  DEVICE_VENDOR := Xunlong
+  DEVICE_MODEL := Orange Pi 4a
+  $(Device/sun50i-t527)
+endef
+TARGET_DEVICES += xunlong_orangepi-4a
+
 define Device/xunlong_orangepi-one-plus
   $(Device/sun50i-h6)
   DEVICE_VENDOR := Xunlong
@@ -146,3 +196,10 @@ define Device/xunlong_orangepi-zero-plus
   $(Device/sun50i-h5)
 endef
 TARGET_DEVICES += xunlong_orangepi-zero-plus
+
+define Device/yuzukihd_avaota-a1
+  DEVICE_VENDOR := yuzukihd
+  DEVICE_MODEL := avaota-a1
+  $(Device/sun55i-t527)
+endef
+TARGET_DEVICES += yuzukihd_avaota-a1

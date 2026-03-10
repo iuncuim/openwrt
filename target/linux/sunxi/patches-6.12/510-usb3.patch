@@ -1,0 +1,575 @@
+From 9414c28dca2db68626799e03fdb55ab9dffe8384 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Wed, 11 Feb 2026 17:10:50 +0800
+Subject: [PATCH 07/11] usb3
+
+---
+ .../arm64/boot/dts/allwinner/sun55i-a523.dtsi |  52 +++-
+ .../dts/allwinner/sun55i-a527-radxa-a5e.dts   |   8 +
+ .../dts/allwinner/sun55i-h728-x96qpro+.dts    |   8 +
+ .../dts/allwinner/sun55i-t527-avaota-a1.dts   |   8 +
+ drivers/clk/sunxi-ng/ccu-sun55i-a523.c        |  32 +++
+ drivers/clk/sunxi-ng/ccu-sun55i-a523.h        |   2 +-
+ drivers/phy/allwinner/Kconfig                 |   9 +
+ drivers/phy/allwinner/Makefile                |   1 +
+ drivers/phy/allwinner/phy-sun4i-usb.c         |  10 +
+ drivers/phy/allwinner/phy-sun55i-usb3-pcie.c  | 267 ++++++++++++++++++
+ include/dt-bindings/clock/sun55i-a523-ccu.h   |   4 +
+ 11 files changed, 392 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/phy/allwinner/phy-sun55i-usb3-pcie.c
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index 6f8ee1f5e..ed7e50750 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -536,22 +536,27 @@ usb_otg: usb@4100000 {
+ 		};
+ 
+ 		usbphy: phy@4100400 {
+-			compatible = "allwinner,sun55i-a523-usb-phy",
+-				     "allwinner,sun20i-d1-usb-phy";
++			compatible = "allwinner,sun55i-a523-usb-phy";
+ 			reg = <0x4100400 0x100>,
+ 			      <0x4101800 0x100>,
+-			      <0x4200800 0x100>;
++			      <0x4200800 0x100>,
++				  <0x4e00000 0x100>;
+ 			reg-names = "phy_ctrl",
+ 				    "pmu0",
+-				    "pmu1";
++				    "pmu1",
++					"pmu2";
+ 			clocks = <&osc24M>,
+-				 <&osc24M>;
++				 <&osc24M>,
++				 <&ccu CLK_USB2>;
+ 			clock-names = "usb0_phy",
+-				      "usb1_phy";
++				      "usb1_phy",
++					  "usb2_phy";
+ 			resets = <&ccu RST_USB_PHY0>,
+-				 <&ccu RST_USB_PHY1>;
++				 <&ccu RST_USB_PHY1>,
++				 <&ccu RST_BUS_3>;
+ 			reset-names = "usb0_reset",
+-				      "usb1_reset";
++				      "usb1_reset",
++					  "usb2_reset";
+ 			status = "disabled";
+ 			#phy-cells = <1>;
+ 		};
+@@ -657,6 +662,37 @@ gmac1_mtl_tx_setup: tx-queues-config {
+ 			};
+ 		};
+ 
++		dwc3: usb@4d00000 {
++			compatible = "snps,dwc3";
++			reg = <0x04d00000 0x100000>;
++			interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
++			dr_mode = "host";
++			clocks = <&ccu CLK_MBUS_USB3>, <&ccu CLK_USB3>,
++				 <&ccu CLK_USB2>, <&ccu CLK_USB3_SUSPEND>;
++			clock-names = "bus_clk", "ref_clk3", "ref_clk2", "suspend";
++			maximum-speed = "super-speed";
++			phy_type = "utmi";
++			snps,dis_enblslpm_quirk;
++			snps,dis-u1-entry-quirk;
++			snps,dis-u2-entry-quirk;
++			snps,dis_u3_susphy_quirk;
++			snps,dis_u2_susphy_quirk;
++			snps,dis_rxdet_inp3_quirk;
++			phys = <&usbphy 2>, <&combophy>;
++			phy-names = "usb2-phy", "usb3-phy";
++			status = "disabled";
++		};
++
++		combophy: phy@4f00000 {
++			compatible = "allwinner,sun55i-a523-usb3-pcie-phy";
++			reg = <0x04f00000 0x100000>;
++			clocks = <&ccu CLK_USB3>;
++			resets = <&ccu RST_BUS_PCIE_USB3>;
++			#phy-cells = <0>;
++			power-domains = <&pck600 PD_PCIE>;
++			status = "disabled";
++		};
++
+ 		ppu: power-controller@7001400 {
+ 			compatible = "allwinner,sun55i-a523-ppu";
+ 			reg = <0x07001400 0x400>;
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts b/arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts
+index 13e476c0c..63cab4a61 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts
+@@ -55,6 +55,14 @@ &cpu4 {
+ 	cpu-supply = <&reg_dcdc1_323>;
+ };
+ 
++&combophy {
++	status = "okay";
++};
++
++&dwc3 {
++	status = "okay";
++};
++
+ &ehci0 {
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts b/arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts
+index 4776fac42..dbba288b2 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts
++++ b/arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts
+@@ -55,6 +55,14 @@ &cpu4 {
+ 	cpu-supply = <&reg_dcdc1_323>;
+ };
+ 
++&combophy {
++	status = "okay";
++};
++
++&dwc3 {
++	status = "okay";
++};
++
+ &ehci0 {
+ 	status = "okay";
+ };
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts b/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
+index 5538a97d8..152803e11 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
++++ b/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
+@@ -66,6 +66,14 @@ &cpu4 {
+ 	cpu-supply = <&reg_dcdc1_323>;
+ };
+ 
++&combophy {
++	status = "okay";
++};
++
++&dwc3 {
++	status = "okay";
++};
++
+ &ehci0 {
+ 	status = "okay";
+ };
+diff --git a/drivers/clk/sunxi-ng/ccu-sun55i-a523.c b/drivers/clk/sunxi-ng/ccu-sun55i-a523.c
+index 9efb9fd24..c2690d21d 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun55i-a523.c
++++ b/drivers/clk/sunxi-ng/ccu-sun55i-a523.c
+@@ -852,6 +852,31 @@ static struct ccu_mux usb_ohci1_clk = {
+ 	},
+ };
+ 
++static SUNXI_CCU_GATE_DATA(usb2_clk, "usb2", osc24M, 0xa80, BIT(31), 0);
++
++static const struct clk_parent_data usb3_parents[] = {
++	{ .fw_name = "hosc" },
++	{ .hw = &pll_periph0_200M_clk.hw },
++	{ .hw = &pll_periph1_200M_clk.hw },
++};
++
++static SUNXI_CCU_M_DATA_WITH_MUX_GATE(usb3_clk, "usb3", usb3_parents, 0xa84,
++				      0, 5,	/* M */
++				      24, 3,	/* mux */
++				      BIT(31),	/* gate */
++				      0);
++
++static const struct clk_parent_data usb3_suspend_parents[] = {
++	{ .fw_name = "losc" },
++};
++
++static SUNXI_CCU_M_DATA_WITH_MUX_GATE(usb3_suspend_clk, "usb3-suspend",
++				      usb3_suspend_parents, 0xa88,
++				      0, 5,	/* M */
++				      24, 1,	/* mux */
++				      BIT(31),	/* gate */
++				      0);
++
+ static SUNXI_CCU_GATE_HWS(bus_ohci0_clk, "bus-ohci0", ahb_hws, 0xa8c,
+ 			  BIT(0), 0);
+ static SUNXI_CCU_GATE_HWS(bus_ohci1_clk, "bus-ohci1", ahb_hws, 0xa8c,
+@@ -1289,6 +1314,9 @@ static struct ccu_common *sun55i_a523_ccu_clks[] = {
+ 	&bus_ths_clk.common,
+ 	&usb_ohci0_clk.common,
+ 	&usb_ohci1_clk.common,
++	&usb2_clk.common,
++	&usb3_clk.common,
++	&usb3_suspend_clk.common,
+ 	&bus_ohci0_clk.common,
+ 	&bus_ohci1_clk.common,
+ 	&bus_ehci0_clk.common,
+@@ -1421,6 +1449,7 @@ static struct clk_hw_onecell_data sun55i_a523_hw_clks = {
+ 		[CLK_MBUS_DMA]		= &mbus_dma_clk.common.hw,
+ 		[CLK_MBUS_VE]		= &mbus_ve_clk.common.hw,
+ 		[CLK_MBUS_CE]		= &mbus_ce_clk.common.hw,
++		[CLK_MBUS_USB3]		= &mbus_usb3_clk.common.hw,
+ 		[CLK_MBUS_CSI]		= &mbus_csi_clk.common.hw,
+ 		[CLK_MBUS_ISP]		= &mbus_isp_clk.common.hw,
+ 		[CLK_MBUS_EMAC1]	= &mbus_gmac1_clk.common.hw,
+@@ -1473,6 +1502,9 @@ static struct clk_hw_onecell_data sun55i_a523_hw_clks = {
+ 		[CLK_BUS_THS]		= &bus_ths_clk.common.hw,
+ 		[CLK_USB_OHCI0]		= &usb_ohci0_clk.common.hw,
+ 		[CLK_USB_OHCI1]		= &usb_ohci1_clk.common.hw,
++		[CLK_USB2]		= &usb2_clk.common.hw,
++		[CLK_USB3]		= &usb3_clk.common.hw,
++		[CLK_USB3_SUSPEND]	= &usb3_suspend_clk.common.hw,
+ 		[CLK_BUS_OHCI0]		= &bus_ohci0_clk.common.hw,
+ 		[CLK_BUS_OHCI1]		= &bus_ohci1_clk.common.hw,
+ 		[CLK_BUS_EHCI0]		= &bus_ehci0_clk.common.hw,
+diff --git a/drivers/clk/sunxi-ng/ccu-sun55i-a523.h b/drivers/clk/sunxi-ng/ccu-sun55i-a523.h
+index fc8dd42f1..d6916c728 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun55i-a523.h
++++ b/drivers/clk/sunxi-ng/ccu-sun55i-a523.h
+@@ -9,6 +9,6 @@
+ #include <dt-bindings/clock/sun55i-a523-ccu.h>
+ #include <dt-bindings/reset/sun55i-a523-ccu.h>
+ 
+-#define CLK_NUMBER	(CLK_FANOUT2 + 1)
++#define CLK_NUMBER	(CLK_MBUS_USB3 + 1)
+ 
+ #endif /* _CCU_SUN55I_A523_H */
+diff --git a/drivers/phy/allwinner/Kconfig b/drivers/phy/allwinner/Kconfig
+index fb584518b..c88eeff60 100644
+--- a/drivers/phy/allwinner/Kconfig
++++ b/drivers/phy/allwinner/Kconfig
+@@ -57,3 +57,12 @@ config PHY_SUN50I_USB3
+ 	  part of Allwinner H6 SoC.
+ 
+ 	  This driver controls each individual USB 2+3 host PHY combo.
++
++config PHY_SUN55I_USB3_PCIE
++	tristate "Allwinner A523 Innosilicon USB3/PCIe Combophy Driver"
++	depends on ARCH_SUNXI || COMPILE_TEST
++	depends on RESET_CONTROLLER
++	select GENERIC_PHY
++	help
++	  Enable this to support the Allwinner PCIe/USB3.0 combo PHY
++	  with Innosilicon IP block founded in A523/A527/H728/T527 SOC
+diff --git a/drivers/phy/allwinner/Makefile b/drivers/phy/allwinner/Makefile
+index bd74901a1..5948a27ef 100644
+--- a/drivers/phy/allwinner/Makefile
++++ b/drivers/phy/allwinner/Makefile
+@@ -3,3 +3,4 @@ obj-$(CONFIG_PHY_SUN4I_USB)		+= phy-sun4i-usb.o
+ obj-$(CONFIG_PHY_SUN6I_MIPI_DPHY)	+= phy-sun6i-mipi-dphy.o
+ obj-$(CONFIG_PHY_SUN9I_USB)		+= phy-sun9i-usb.o
+ obj-$(CONFIG_PHY_SUN50I_USB3)		+= phy-sun50i-usb3.o
++obj-$(CONFIG_PHY_SUN55I_USB3_PCIE)		+= phy-sun55i-usb3-pcie.o
+diff --git a/drivers/phy/allwinner/phy-sun4i-usb.c b/drivers/phy/allwinner/phy-sun4i-usb.c
+index b0f19e950..b5b6da5a8 100644
+--- a/drivers/phy/allwinner/phy-sun4i-usb.c
++++ b/drivers/phy/allwinner/phy-sun4i-usb.c
+@@ -1026,6 +1026,15 @@ static const struct sun4i_usb_phy_cfg sun50i_h616_cfg = {
+ 	.siddq_in_base = true,
+ };
+ 
++static const struct sun4i_usb_phy_cfg sun55i_a523_cfg = {
++	.num_phys = 3,
++	.phyctl_offset = REG_PHYCTL_A33,
++	.dedicated_clocks = true,
++	.hci_phy_ctl_clear = PHY_CTL_SIDDQ,
++	.phy0_dual_route = true,
++	.siddq_in_base = true,
++};
++
+ static const struct of_device_id sun4i_usb_phy_of_match[] = {
+ 	{ .compatible = "allwinner,sun4i-a10-usb-phy", .data = &sun4i_a10_cfg },
+ 	{ .compatible = "allwinner,sun5i-a13-usb-phy", .data = &sun5i_a13_cfg },
+@@ -1042,6 +1051,7 @@ static const struct of_device_id sun4i_usb_phy_of_match[] = {
+ 	  .data = &sun50i_a64_cfg},
+ 	{ .compatible = "allwinner,sun50i-h6-usb-phy", .data = &sun50i_h6_cfg },
+ 	{ .compatible = "allwinner,sun50i-h616-usb-phy", .data = &sun50i_h616_cfg },
++	{ .compatible = "allwinner,sun55i-a523-usb-phy", .data = &sun55i_a523_cfg },
+ 	{ .compatible = "allwinner,suniv-f1c100s-usb-phy",
+ 	  .data = &suniv_f1c100s_cfg },
+ 	{ },
+diff --git a/drivers/phy/allwinner/phy-sun55i-usb3-pcie.c b/drivers/phy/allwinner/phy-sun55i-usb3-pcie.c
+new file mode 100644
+index 000000000..f55ddfde6
+--- /dev/null
++++ b/drivers/phy/allwinner/phy-sun55i-usb3-pcie.c
+@@ -0,0 +1,267 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Driver for Innosilicon USB3.0/PCIe phy found in Allwinner A523 processors.
++ * Currently, the driver only supports the USB3.0 part.
++ *
++ * Copyright (C) 2025 Mikhail Kalashnikov <iuncuim@gmail.com>
++ * Based on phy-sun50i-usb3.c, which is:
++ * Copyright (C) 2017 Icenowy Zheng <icenowy@aosc.io>
++ *
++ */
++
++#include <linux/clk.h>
++#include <linux/err.h>
++#include <linux/io.h>
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/phy/phy.h>
++#include <linux/platform_device.h>
++#include <linux/reset.h>
++
++#define PHY_SYS_VER			0x00
++
++#define PHY_USB3_BGR		0x08
++/* Control bits for the USB3 part */
++#define USB3_RESETN			BIT(0)
++#define USB3_ACLK_EN		BIT(17)
++#define USB3_HCLK_EN		BIT(16)
++
++#define PHY_CTL				0x10
++/* Control bits for the common part */
++#define PHY_RSTN			BIT(0)
++/* Bit for selecting internal(0) or external(1) clock */
++#define PHY_CLK_SEL			BIT(30)
++/* Bit for selecting PCIe(0) or USB3(1) role */
++#define PHY_USE_SEL			BIT(31)
++
++#define PHY_CLK_OFFSET		0x80000
++
++struct sun55i_usb3_pcie_phy {
++	struct device *dev;
++	struct phy *phy;
++	void __iomem *regs;
++	void __iomem *regs_clk;
++	struct reset_control *reset;
++	struct clk *clk;
++};
++
++/*
++ * These values are derived from the manufacturer's driver code.
++ * Comments are preserved.
++ */
++static void sun55i_usb3_phy_open(struct sun55i_usb3_pcie_phy *phy)
++{
++	u32 val;
++
++	val = readl(phy->regs_clk + 0x1418);
++	val &= ~(GENMASK(17, 16));
++	val |= BIT(25);
++	writel(val, phy->regs_clk + 0x1418);
++
++	/* reg_rx_eq_bypass[3]=1, rx_ctle_res_cal_bypass */
++	val = readl(phy->regs_clk + 0x674);
++	val |= BIT(3);
++	writel(val, phy->regs_clk + 0x674);
++
++	/* rx_ctle_res_cal=0xf, 0x4->0xf */
++	val = readl(phy->regs_clk + 0x704);
++	val |= BIT(8) | BIT(9) | BIT(11);
++	writel(val, phy->regs_clk + 0x704);
++
++	/* CDR_div_fin_gain1 */
++	val = readl(phy->regs_clk + 0x400);
++	val |= BIT(4);
++	writel(val, phy->regs_clk + 0x400);
++
++	/* CDR_div1_fin_gain1 */
++	val = readl(phy->regs_clk + 0x404);
++	val |= GENMASK(3, 0);
++	val |= BIT(5);
++	writel(val, phy->regs_clk + 0x404);
++
++	/* CDR_div3_fin_gain1 */
++	val = readl(phy->regs_clk + 0x408);
++	val |= BIT(5);
++	writel(val, phy->regs_clk + 0x408);
++
++	val = readl(phy->regs_clk + 0x109c);
++	val |= BIT(1);
++	writel(val, phy->regs_clk + 0x109c);
++
++	/* SSC configure */
++	/* div_N */
++	val = readl(phy->regs_clk + 0x107c);
++	val &= ~(GENMASK(17, 12));
++	val |= BIT(12);
++	writel(val, phy->regs_clk + 0x107c);
++
++	/* modulation freq div */
++	val = readl(phy->regs_clk + 0x1020);
++	val &= ~(GENMASK(4, 0));
++	val |= BIT(1) | BIT(2);
++	writel(val, phy->regs_clk + 0x1020);
++
++	/* spread[6:0], 400*9=4410ppm ssc */
++	val = readl(phy->regs_clk + 0x1034);
++	val &= ~(GENMASK(22, 16));
++	val |= BIT(16) | BIT(19);
++	writel(val, phy->regs_clk + 0x1034);
++
++	val = readl(phy->regs_clk + 0x101c);
++	/* don't disable ssc = 0 */
++	val &= ~BIT(28);
++	/* choose downspread */
++	val |= BIT(27);
++	writel(val, phy->regs_clk + 0x101c);
++}
++
++static int sun55i_usb3_pcie_clk_init(struct sun55i_usb3_pcie_phy *phy)
++{
++	u32 val;
++	int ret;
++
++	ret = clk_prepare_enable(phy->clk);
++	if (ret)
++		return ret;
++
++	ret = reset_control_deassert(phy->reset);
++	if (ret) {
++		clk_disable_unprepare(phy->clk);
++		return ret;
++	}
++
++	val = readl(phy->regs + PHY_CTL);
++	val |= PHY_USE_SEL | PHY_RSTN;
++	val &= ~PHY_CLK_SEL;
++	writel(val, phy->regs + PHY_CTL);
++
++	val = readl(phy->regs + PHY_USB3_BGR);
++	val |= USB3_ACLK_EN | USB3_HCLK_EN | USB3_RESETN;
++	writel(val, phy->regs + PHY_USB3_BGR);
++
++	return 0;
++}
++
++static int sun55i_usb3_pcie_phy_init(struct phy *_phy)
++{
++	struct sun55i_usb3_pcie_phy *phy = phy_get_drvdata(_phy);
++
++	sun55i_usb3_phy_open(phy);
++
++	return 0;
++}
++
++static int sun55i_usb3_pcie_phy_exit(struct phy *_phy)
++{
++	struct sun55i_usb3_pcie_phy *phy = phy_get_drvdata(_phy);
++
++	reset_control_assert(phy->reset);
++	clk_disable_unprepare(phy->clk);
++
++	return 0;
++}
++
++static void sun55i_usb3_pcie_phy_power_set(struct phy *_phy, bool on)
++{
++	struct sun55i_usb3_pcie_phy *phy = phy_get_drvdata(_phy);
++	u32 val;
++
++	val = readl(phy->regs_clk + 0x14);
++	val = on ? (val & ~BIT(26)) : (val | BIT(26));
++	writel(val, phy->regs_clk + 0x14);
++
++	val = readl(phy->regs_clk);
++	val = on ? (val & ~BIT(10)) : (val | BIT(10));
++	writel(val, phy->regs_clk);
++}
++
++static int sun55i_usb3_pcie_phy_power_on(struct phy *_phy)
++{
++	sun55i_usb3_pcie_phy_power_set(_phy, true);
++
++	return 0;
++}
++
++static int sun55i_usb3_pcie_phy_power_off(struct phy *_phy)
++{
++	sun55i_usb3_pcie_phy_power_set(_phy, false);
++
++	return 0;
++}
++
++static const struct phy_ops sun55i_usb3_pcie_phy_ops = {
++	.init		= sun55i_usb3_pcie_phy_init,
++	.exit		= sun55i_usb3_pcie_phy_exit,
++	.power_on	= sun55i_usb3_pcie_phy_power_on,
++	.power_off	= sun55i_usb3_pcie_phy_power_off,
++	.owner		= THIS_MODULE,
++};
++
++static int sun55i_usb3_pcie_phy_probe(struct platform_device *pdev)
++{
++	struct sun55i_usb3_pcie_phy *phy;
++	struct device *dev = &pdev->dev;
++	struct phy_provider *phy_provider;
++	int ret;
++
++	phy = devm_kzalloc(dev, sizeof(*phy), GFP_KERNEL);
++	if (!phy)
++		return -ENOMEM;
++
++	phy->dev = dev;
++	phy->clk = devm_clk_get(dev, NULL);
++	if (IS_ERR(phy->clk)) {
++		if (PTR_ERR(phy->clk) != -EPROBE_DEFER)
++			dev_err(dev, "failed to get phy clock\n");
++		return PTR_ERR(phy->clk);
++	}
++
++	phy->reset = devm_reset_control_get(dev, NULL);
++	if (IS_ERR(phy->reset)) {
++		dev_err(dev, "failed to get reset control\n");
++		return PTR_ERR(phy->reset);
++	}
++
++	phy->regs = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(phy->regs))
++		return PTR_ERR(phy->regs);
++
++	phy->regs_clk = phy->regs + PHY_CLK_OFFSET;
++	if (IS_ERR(phy->regs_clk))
++		return PTR_ERR(phy->regs_clk);
++
++	phy->phy = devm_phy_create(dev, NULL, &sun55i_usb3_pcie_phy_ops);
++	if (IS_ERR(phy->phy)) {
++		dev_err(dev, "failed to create PHY\n");
++		return PTR_ERR(phy->phy);
++	}
++
++	phy_set_drvdata(phy->phy, phy);
++	phy_provider = devm_of_phy_provider_register(dev, of_phy_simple_xlate);
++
++	ret = sun55i_usb3_pcie_clk_init(phy);
++	if (ret)
++		return ret;
++	dev_info(phy->dev, "phy version is: 0x%x\n", readl(phy->regs));
++
++	return PTR_ERR_OR_ZERO(phy_provider);
++}
++
++static const struct of_device_id sun55i_usb3_pcie_phy_of_match[] = {
++	{ .compatible = "allwinner,sun55i-a523-usb3-pcie-phy" },
++	{ },
++};
++MODULE_DEVICE_TABLE(of, sun55i_usb3_pcie_phy_of_match);
++
++static struct platform_driver sun55i_usb3_pcie_phy_driver = {
++	.probe	= sun55i_usb3_pcie_phy_probe,
++	.driver = {
++		.of_match_table	= sun55i_usb3_pcie_phy_of_match,
++		.name  = "sun55i-usb3-pcie-phy",
++	}
++};
++module_platform_driver(sun55i_usb3_pcie_phy_driver);
++
++MODULE_DESCRIPTION("Allwinner A523 USB3/PCIe phy driver");
++MODULE_AUTHOR("Mikhail Kalashnikov <iuncuim@gmail.com>");
++MODULE_LICENSE("GPL");
+diff --git a/include/dt-bindings/clock/sun55i-a523-ccu.h b/include/dt-bindings/clock/sun55i-a523-ccu.h
+index c8259ac5a..26b2e9dc8 100644
+--- a/include/dt-bindings/clock/sun55i-a523-ccu.h
++++ b/include/dt-bindings/clock/sun55i-a523-ccu.h
+@@ -185,5 +185,9 @@
+ #define CLK_FANOUT0		176
+ #define CLK_FANOUT1		177
+ #define CLK_FANOUT2		178
++#define CLK_USB2		179
++#define CLK_USB3		180
++#define CLK_USB3_SUSPEND	181
++#define CLK_MBUS_USB3		182
+ 
+ #endif /* _DT_BINDINGS_CLK_SUN55I_A523_CCU_H_ */
+-- 
+2.53.0
+

@@ -1,0 +1,380 @@
+diff --git a/dts/upstream/src/arm64/allwinner/sun55i-t527-walnutpi-2b.dts b/dts/upstream/src/arm64/allwinner/sun55i-t527-walnutpi-2b.dts
+new file mode 100644
+index 00000000..f7cf833d
+--- /dev/null
++++ b/dts/upstream/src/arm64/allwinner/sun55i-t527-walnutpi-2b.dts
+@@ -0,0 +1,333 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++// Copyright (C) 2024 Arm Ltd.
++
++/dts-v1/;
++
++#include "sun55i-a523.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++
++/ {
++	model = "Walnut Pi 2b";
++	compatible = "allwinner,sun55i-t527";
++
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	ext_osc32k: ext-osc32k-clk {
++		#clock-cells = <0>;
++		compatible = "fixed-clock";
++		clock-frequency = <32768>;
++		clock-output-names = "ext_osc32k";
++	};
++
++	reg_vcc5v: vcc5v {
++		/* board wide 5V supply from the barrel plug */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++
++	reg_vcc3v3: vcc3v3 {
++		/* 3.3V dummy supply for the SD card */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		vin-supply = <&reg_vcc5v>;
++		regulator-always-on;
++	};
++
++	reg_vcc1v8: vcc1v8 {
++		/* 1.8V dummy supply for pio */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-1v8";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		vin-supply = <&reg_vcc5v>;
++		regulator-always-on;
++	};
++
++	reg_emmc: vcc-emmc {
++		/* 1.8V dummy supply for emmc */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-emmc";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		vin-supply = <&reg_cldo1>;
++		regulator-always-on;
++	};
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_vcc3v3>;
++	cd-gpios = <&pio 5 6 (GPIO_ACTIVE_LOW | GPIO_PULL_DOWN)>; /* PF6 */
++	bus-width = <4>;
++	status = "okay";
++};
++
++&mmc2 {
++	bus-width = <8>;
++	cap-mmc-hw-reset;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++	non-removable;
++	vmmc-supply = <&reg_cldo3>;
++	vqmmc-supply = <&reg_emmc>;
++	max-frequency = <50000000>;
++	status = "okay";
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&pio {
++	vcc-pb-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pc-supply = <&reg_cldo1>;
++	vcc-pd-supply = <&reg_dcdc4>;
++	vcc-pe-supply = <&reg_vcc1v8>;
++	vcc-pf-supply = <&reg_vcc1v8>;
++	vcc-pg-supply = <&reg_vcc1v8>;
++	vcc-ph-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pi-supply = <&reg_dcdc4>;
++	vcc-pj-supply = <&reg_dcdc4>;
++	vcc-pk-supply = <&reg_dcdc4>;
++};
++
++&r_i2c0 {
++	status = "okay";
++
++	axp717: pmic@35 {
++		compatible = "x-powers,axp717";
++		reg = <0x35>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++		vin4-supply = <&reg_vcc5v>;
++		aldoin-supply = <&reg_vcc5v>;
++		bldoin-supply = <&reg_vcc5v>;
++		cldoin-supply = <&reg_vcc5v>;
++
++		regulators {
++			/* Supplies the "little" cluster (1.0(?) GHz cores) */
++			reg_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpul";
++			};
++
++			reg_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <920000>;
++				regulator-max-microvolt = <920000>;
++				regulator-name = "vdd-gpu-sys";
++			};
++
++			reg_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1160000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-dram";
++			};
++
++			reg_dcdc4: dcdc4 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vdd-dcdc4";
++			};
++
++			reg_aldo1: aldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-aldo1";
++			};
++
++			reg_aldo2: aldo2 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-aldo2";
++			};
++
++			reg_aldo3: aldo3 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-aldo3";
++			};
++
++			reg_aldo4: aldo4 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pll-dxco-avcc";
++			};
++
++			reg_bldo1: bldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pg-wifi-lvds";
++			};
++
++			reg_bldo2: bldo2 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-dram-1v8";
++			};
++
++			reg_bldo3: bldo3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-bldo3";
++			};
++
++			reg_bldo4: bldo4 {
++				regulator-always-on;
++				regulator-min-microvolt = <1200000>;
++				regulator-max-microvolt = <1200000>;
++				regulator-name = "vcc-bldo4";
++			};
++
++			reg_cldo1: cldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <2100000>;
++				regulator-max-microvolt = <2100000>;
++				regulator-name = "vcc-codec-sd";
++			};
++
++			reg_cldo2: cldo2 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-cldo2";
++			};
++
++			reg_cldo3: cldo3 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-codec-eth-sd";
++			};
++
++			reg_cldo4: cldo4 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-eth-phy";
++			};
++
++			reg_cpusldo: cpusldo {
++				/* supplies the management core */
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-cpus";
++			};
++		};
++	};
++
++	axp323: pmic@36 {
++		compatible = "x-powers,axp323";
++		reg = <0x36>;
++		#interrupt-cells = <1>;
++		interrupt-controller;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++		status = "okay";
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++
++		regulators {
++			aldo1 {
++				/* not connected */
++			};
++
++			dldo1 {
++				/* not connected */
++			};
++
++			/* Supplies the "big" cluster (1.8 GHz cores) */
++			reg_dcdc1_323: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpub";
++			};
++
++			/* DCDC2 is polyphased with DCDC1 */
++
++			/* Some RISC-V management core related voltage */
++			reg_dcdc3_323: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-dnr";
++			};
++		};
++	};
++};
++
++&r_pio {
++/*
++ * Specifying the supply would create a circular dependency.
++ *
++ *	vcc-pl-supply = <&reg_aldo3>;
++ */
++	vcc-pm-supply = <&reg_aldo3>;
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pb_pins>;
++	status = "okay";
++};
++
++&usb_otg {
++	 /*
++	  * The CC pins of the USB-C port have two pull-down resistors
++	  * connected to GND, which fixes this port to a peripheral role.
++	  * There is a regulator, controlled by a GPIO, to provide VBUS power
++	  * to the port, and a VBUSDET GPIO, to detect externally provided
++	  * power, but without the CC pins there is no real way to do a
++	  * runtime role detection.
++	  */
++	dr_mode = "peripheral";
++	status = "okay";
++};
++
++&usbphy {
++	status = "okay";
++};
+diff --git a/configs/walnutpi_2b_defconfig b/configs/walnutpi_2b_defconfig
+new file mode 100644
+index 00000000..6053f3e4
+--- /dev/null
++++ b/configs/walnutpi_2b_defconfig
+@@ -0,0 +1,32 @@
++CONFIG_ARM=y
++CONFIG_ARCH_SUNXI=y
++CONFIG_DEFAULT_DEVICE_TREE="allwinner/sun55i-t527-walnutpi-2b"
++CONFIG_SPL=y
++CONFIG_DRAM_SUNXI_DX_ODT=0x07070707
++CONFIG_DRAM_SUNXI_DX_DRI=0x0d0d0d0d
++CONFIG_DRAM_SUNXI_CA_DRI=0x0e0e
++CONFIG_DRAM_SUNXI_ODT_EN=0x84848484
++CONFIG_DRAM_SUNXI_TPR0=0x80808080
++CONFIG_DRAM_SUNXI_TPR1=0x06060606
++CONFIG_DRAM_SUNXI_TPR6=0x38000000
++CONFIG_DRAM_SUNXI_TPR10=0x802f3333
++CONFIG_DRAM_SUNXI_TPR11=0xc7c5c4c2
++CONFIG_DRAM_SUNXI_TPR12=0x3533302f
++CONFIG_MACH_SUN55I_A523=y
++CONFIG_MMC_SUNXI_SLOT_EXTRA=2
++CONFIG_R_I2C_ENABLE=y
++# CONFIG_SYS_MALLOC_CLEAR_ON_INIT is not set
++CONFIG_SPL_I2C=y
++CONFIG_SPL_SYS_I2C_LEGACY=y
++CONFIG_SYS_I2C_MVTWSI=y
++CONFIG_SYS_I2C_SLAVE=0x7f
++CONFIG_SYS_I2C_SPEED=400000
++CONFIG_SUPPORT_EMMC_BOOT=y
++CONFIG_REGULATOR_AXP=y
++CONFIG_AXP717_POWER=y
++CONFIG_AXP_I2C_ADDRESS=0x35
++CONFIG_AXP_CLDO1_VOLT=2100
++CONFIG_AXP_DCDC2_VOLT=920
++CONFIG_AXP_DCDC3_VOLT=1160
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_OHCI_HCD=y
+-- 
+2.49.0
+

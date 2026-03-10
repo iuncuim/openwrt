@@ -1,0 +1,2100 @@
+From fc98800a4573d045ded627b17acc9b4083578668 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Sat, 7 Feb 2026 12:10:02 +0800
+Subject: [PATCH 04/23] 1202
+
+---
+ .../devicetree/bindings/arm/sunxi.yaml        |  20 +
+ .../allwinner,sun7i-a20-sc-nmi.yaml           |   1 +
+ .../bindings/mmc/allwinner,sun4i-a10-mmc.yaml |  38 +-
+ .../devicetree/bindings/vendor-prefixes.yaml  |   2 +
+ .../watchdog/allwinner,sun4i-a10-wdt.yaml     |   2 +
+ arch/arm64/boot/dts/allwinner/Makefile        |   4 +
+ .../sun50i-h618-yuzukihd-chameleon.dts        | 222 +++++++
+ .../arm64/boot/dts/allwinner/sun55i-a523.dtsi | 598 ++++++++++++++++++
+ .../dts/allwinner/sun55i-a527-radxa-a5e.dts   | 299 +++++++++
+ .../dts/allwinner/sun55i-h728-x96qpro+.dts    | 287 +++++++++
+ .../dts/allwinner/sun55i-t527-avaota-a1.dts   | 308 +++++++++
+ drivers/irqchip/irq-sunxi-nmi.c               |  76 ++-
+ drivers/watchdog/sunxi_wdt.c                  |  11 +
+ 13 files changed, 1818 insertions(+), 50 deletions(-)
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun50i-h618-yuzukihd-chameleon.dts
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts
+ create mode 100644 arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
+
+diff --git a/Documentation/devicetree/bindings/arm/sunxi.yaml b/Documentation/devicetree/bindings/arm/sunxi.yaml
+index 4aa15f366..254ee711f 100644
+--- a/Documentation/devicetree/bindings/arm/sunxi.yaml
++++ b/Documentation/devicetree/bindings/arm/sunxi.yaml
+@@ -840,6 +840,11 @@ properties:
+           - const: allwinner,r7-tv-dongle
+           - const: allwinner,sun5i-a10s
+ 
++      - description: Radxa Cubie A5E
++        items:
++          - const: radxa,cubie-a5e
++          - const: allwinner,sun55i-a527
++
+       - description: Remix Mini PC
+         items:
+           - const: jide,remix-mini-pc
+@@ -955,6 +960,11 @@ properties:
+           - const: hechuang,x96-mate
+           - const: allwinner,sun50i-h616
+ 
++      - description: X96Q Pro+
++        items:
++          - const: amediatech,x96q-pro-plus
++          - const: allwinner,sun55i-h728
++
+       - description: Xunlong OrangePi
+         items:
+           - const: xunlong,orangepi
+@@ -1070,4 +1080,14 @@ properties:
+           - const: xunlong,orangepi-zero3
+           - const: allwinner,sun50i-h618
+ 
++      - description: YuzukiHD Avaota A1
++        items:
++          - const: yuzukihd,avaota-a1
++          - const: allwinner,sun55i-t527
++
++      - description: YuzukiHD Chameleon
++        items:
++          - const: yuzukihd,chameleon
++          - const: allwinner,sun50i-h618
++
+ additionalProperties: true
+diff --git a/Documentation/devicetree/bindings/interrupt-controller/allwinner,sun7i-a20-sc-nmi.yaml b/Documentation/devicetree/bindings/interrupt-controller/allwinner,sun7i-a20-sc-nmi.yaml
+index f49b43f45..06e3621a8 100644
+--- a/Documentation/devicetree/bindings/interrupt-controller/allwinner,sun7i-a20-sc-nmi.yaml
++++ b/Documentation/devicetree/bindings/interrupt-controller/allwinner,sun7i-a20-sc-nmi.yaml
+@@ -26,6 +26,7 @@ properties:
+         deprecated: true
+       - const: allwinner,sun7i-a20-sc-nmi
+       - const: allwinner,sun9i-a80-nmi
++      - const: allwinner,sun55i-a523-nmi
+       - items:
+           - enum:
+               - allwinner,sun8i-v3s-nmi
+diff --git a/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml b/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml
+index 0ccd632d5..9f3b1edac 100644
+--- a/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml
++++ b/Documentation/devicetree/bindings/mmc/allwinner,sun4i-a10-mmc.yaml
+@@ -30,38 +30,34 @@ properties:
+       - const: allwinner,sun50i-a100-emmc
+       - const: allwinner,sun50i-a100-mmc
+       - items:
+-          - const: allwinner,sun8i-a83t-mmc
++          - enum:
++              - allwinner,sun8i-a83t-mmc
++              - allwinner,suniv-f1c100s-mmc
+           - const: allwinner,sun7i-a20-mmc
+       - items:
+-          - const: allwinner,sun8i-r40-emmc
++          - enum:
++              - allwinner,sun8i-r40-emmc
++              - allwinner,sun50i-h5-emmc
++              - allwinner,sun50i-h6-emmc
+           - const: allwinner,sun50i-a64-emmc
+       - items:
+-          - const: allwinner,sun8i-r40-mmc
++          - enum:
++              - allwinner,sun8i-r40-mmc
++              - allwinner,sun50i-h5-mmc
++              - allwinner,sun50i-h6-mmc
+           - const: allwinner,sun50i-a64-mmc
+       - items:
+-          - const: allwinner,sun50i-h5-emmc
+-          - const: allwinner,sun50i-a64-emmc
+-      - items:
+-          - const: allwinner,sun50i-h5-mmc
+-          - const: allwinner,sun50i-a64-mmc
+-      - items:
+-          - const: allwinner,sun50i-h6-emmc
+-          - const: allwinner,sun50i-a64-emmc
+-      - items:
+-          - const: allwinner,sun50i-h6-mmc
+-          - const: allwinner,sun50i-a64-mmc
+-      - items:
+-          - const: allwinner,sun20i-d1-emmc
+-          - const: allwinner,sun50i-a100-emmc
+-      - items:
+-          - const: allwinner,sun50i-h616-emmc
++          - enum:
++              - allwinner,sun20i-d1-emmc
++              - allwinner,sun50i-h616-emmc
++              - allwinner,sun55i-a523-emmc
+           - const: allwinner,sun50i-a100-emmc
+       - items:
+           - const: allwinner,sun50i-h616-mmc
+           - const: allwinner,sun50i-a100-mmc
+       - items:
+-          - const: allwinner,suniv-f1c100s-mmc
+-          - const: allwinner,sun7i-a20-mmc
++          - const: allwinner,sun55i-a523-mmc
++          - const: allwinner,sun20i-d1-mmc
+ 
+   reg:
+     maxItems: 1
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index af9a8d43b..38669b228 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -1715,6 +1715,8 @@ patternProperties:
+     description: Shenzhen Yashi Changhua Intelligent Technology Co., Ltd.
+   "^ysoft,.*":
+     description: Y Soft Corporation a.s.
++  "^yuzukihd,.*":
++    description: YuzukiHD Open Source Hardware
+   "^zarlink,.*":
+     description: Zarlink Semiconductor
+   "^zealz,.*":
+diff --git a/Documentation/devicetree/bindings/watchdog/allwinner,sun4i-a10-wdt.yaml b/Documentation/devicetree/bindings/watchdog/allwinner,sun4i-a10-wdt.yaml
+index 64c8f7393..b35ac03d5 100644
+--- a/Documentation/devicetree/bindings/watchdog/allwinner,sun4i-a10-wdt.yaml
++++ b/Documentation/devicetree/bindings/watchdog/allwinner,sun4i-a10-wdt.yaml
+@@ -32,6 +32,7 @@ properties:
+       - items:
+           - const: allwinner,sun20i-d1-wdt-reset
+           - const: allwinner,sun20i-d1-wdt
++      - const: allwinner,sun55i-a523-wdt
+ 
+   reg:
+     maxItems: 1
+@@ -60,6 +61,7 @@ if:
+           - allwinner,sun20i-d1-wdt-reset
+           - allwinner,sun50i-r329-wdt
+           - allwinner,sun50i-r329-wdt-reset
++          - allwinner,sun55i-a523-wdt
+ 
+ then:
+   properties:
+diff --git a/arch/arm64/boot/dts/allwinner/Makefile b/arch/arm64/boot/dts/allwinner/Makefile
+index 00bed412e..c15f6a0d8 100644
+--- a/arch/arm64/boot/dts/allwinner/Makefile
++++ b/arch/arm64/boot/dts/allwinner/Makefile
+@@ -48,7 +48,11 @@ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h618-longanpi-3h.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h618-orangepi-zero2w.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h618-orangepi-zero3.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h618-transpeed-8k618-t.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h618-yuzukihd-chameleon.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h700-anbernic-rg35xx-2024.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h700-anbernic-rg35xx-h.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h700-anbernic-rg35xx-plus.dtb
+ dtb-$(CONFIG_ARCH_SUNXI) += sun50i-h700-anbernic-rg35xx-sp.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun55i-a527-radxa-a5e.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun55i-h728-x96qpro+.dtb
++dtb-$(CONFIG_ARCH_SUNXI) += sun55i-t527-avaota-a1.dtb
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h618-yuzukihd-chameleon.dts b/arch/arm64/boot/dts/allwinner/sun50i-h618-yuzukihd-chameleon.dts
+new file mode 100644
+index 000000000..9e9db0003
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h618-yuzukihd-chameleon.dts
+@@ -0,0 +1,222 @@
++// SPDX-License-Identifier: (GPL-2.0 OR MIT)
++/*
++ * Copyright (C) 2024 Arm Ltd.
++ */
++
++/dts-v1/;
++
++#include "sun50i-h616.dtsi"
++#include "sun50i-h616-cpu-opp.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++
++/ {
++	model = "Yuzuki Chameleon";
++	compatible = "yuzukihd,chameleon", "allwinner,sun50i-h618";
++
++	aliases {
++		ethernet1 = &sdio_wifi;
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	reg_vcc5v: vcc5v {
++		/* board wide 5V supply directly from the USB-C socket */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++
++	wifi_pwrseq: pwrseq {
++		compatible = "mmc-pwrseq-simple";
++		clocks = <&rtc CLK_OSC32K_FANOUT>;
++		clock-names = "ext_clock";
++		pinctrl-0 = <&x32clk_fanout_pin>;
++		pinctrl-names = "default";
++		reset-gpios = <&pio 6 11 GPIO_ACTIVE_LOW>; /* PG11 */
++	};
++};
++/*
++&codec {
++	allwinner,audio-routing = "Line Out", "LINEOUT";
++	status = "okay";
++};
++*/
++&cpu0 {
++	cpu-supply = <&reg_dcdc2>;
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&ehci2 {
++	status = "okay";
++};
++
++&ehci3 {
++	status = "okay";
++};
++
++&mmc0 {
++	bus-width = <4>;
++	cd-gpios = <&pio 5 6 GPIO_ACTIVE_LOW>;	/* PF6 */
++	disable-wp;
++	vmmc-supply = <&reg_dldo1>;
++	status = "okay";
++};
++
++&mmc1 {
++	bus-width = <4>;
++	mmc-pwrseq = <&wifi_pwrseq>;
++	non-removable;
++	vmmc-supply = <&reg_dldo1>;
++	vqmmc-supply = <&reg_dldo1>;
++	status = "okay";
++
++	sdio_wifi: wifi@1 {
++		reg = <1>;
++		interrupt-parent = <&pio>;
++		interrupts = <6 12 IRQ_TYPE_LEVEL_LOW>;  /* PG12 */
++		interrupt-names = "host-wake";
++	};
++};
++
++&mmc2 {
++	bus-width = <8>;
++	cap-mmc-hw-reset;
++	mmc-ddr-3_3v;
++	non-removable;
++	vmmc-supply = <&reg_dldo1>;
++	vqmmc-supply = <&reg_dldo1>;
++	status = "okay";
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&ohci2 {
++	status = "okay";
++};
++
++&ohci3 {
++	status = "okay";
++};
++
++&pio {
++	vcc-pc-supply = <&reg_dldo1>;
++	vcc-pf-supply = <&reg_dldo1>;	/* via VCC_IO */
++	vcc-pg-supply = <&reg_dldo1>;
++	vcc-ph-supply = <&reg_dldo1>;	/* via VCC_IO */
++	vcc-pi-supply = <&reg_dldo1>;
++};
++
++&r_i2c {
++	status = "okay";
++
++	axp313: pmic@36 {
++		compatible = "x-powers,axp313a";
++		reg = <0x36>;
++		#interrupt-cells = <1>;
++		interrupt-controller;
++		interrupt-parent = <&pio>;
++		interrupts = <2 2 IRQ_TYPE_LEVEL_LOW>;	/* PC2 */
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++
++		regulators {
++			/* Supplies VCC-PLL, so needs to be always on. */
++			reg_aldo1: aldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc1v8";
++			};
++
++			/* Supplies VCC-IO, so needs to be always on. */
++			reg_dldo1: dldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc3v3";
++			};
++
++			reg_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <810000>;
++				regulator-max-microvolt = <990000>;
++				regulator-name = "vdd-gpu-sys";
++			};
++
++			reg_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <810000>;
++				regulator-max-microvolt = <1100000>;
++				regulator-name = "vdd-cpu";
++			};
++
++			reg_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1500000>;
++				regulator-max-microvolt = <1500000>;
++				regulator-name = "vdd-dram";
++			};
++		};
++	};
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_ph_pins>;
++	status = "okay";
++};
++
++/* Connected to the Bluetooth UART pins of the XR829 Wifi/BT chip. */
++&uart1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart1_pins>, <&uart1_rts_cts_pins>;
++	uart-has-rtscts;
++	status = "okay";
++};
++
++&usbotg {
++	/*
++	 * PHY0 pins are connected to a USB-C socket, but a role switch
++	 * is not implemented: both CC pins are pulled to GND.
++	 * The VBUS pins power the device, so a fixed peripheral mode
++	 * is the best choice.
++	 * The board can be powered via GPIOs, in this case port0 *can*
++	 * act as a host (with a cable/adapter ignoring CC), as VBUS is
++	 * then provided by the GPIOs. Any user of this setup would
++	 * need to adjust the DT accordingly: dr_mode set to "host",
++	 * enabling OHCI0 and EHCI0.
++	 */
++	dr_mode = "peripheral";
++	status = "okay";
++};
++
++&usbphy {
++	usb0_id_det-gpios = <&pio 6 18 GPIO_ACTIVE_HIGH>; /* PG18 */
++	usb0_vbus-supply = <&reg_vcc5v>;
++	usb1_vbus-supply = <&reg_vcc5v>;
++	usb2_vbus-supply = <&reg_vcc5v>;
++	usb3_vbus-supply = <&reg_vcc5v>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+new file mode 100644
+index 000000000..ee485899b
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -0,0 +1,598 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++// Copyright (C) 2023-2024 Arm Ltd.
++
++#include <dt-bindings/interrupt-controller/arm-gic.h>
++#include <dt-bindings/clock/sun6i-rtc.h>
++#include <dt-bindings/clock/sun55i-a523-ccu.h>
++#include <dt-bindings/clock/sun55i-a523-r-ccu.h>
++#include <dt-bindings/reset/sun55i-a523-ccu.h>
++#include <dt-bindings/reset/sun55i-a523-r-ccu.h>
++
++/ {
++	interrupt-parent = <&gic>;
++	#address-cells = <2>;
++	#size-cells = <2>;
++
++	cpus {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		cpu0: cpu@0 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x000>;
++			enable-method = "psci";
++		};
++
++		cpu1: cpu@100 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x100>;
++			enable-method = "psci";
++		};
++
++		cpu2: cpu@200 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x200>;
++			enable-method = "psci";
++		};
++
++		cpu3: cpu@300 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x300>;
++			enable-method = "psci";
++		};
++
++		cpu4: cpu@400 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x400>;
++			enable-method = "psci";
++		};
++
++		cpu5: cpu@500 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x500>;
++			enable-method = "psci";
++		};
++
++		cpu6: cpu@600 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x600>;
++			enable-method = "psci";
++		};
++
++		cpu7: cpu@700 {
++			compatible = "arm,cortex-a55";
++			device_type = "cpu";
++			reg = <0x700>;
++			enable-method = "psci";
++		};
++	};
++
++	osc24M: osc24M-clk {
++		#clock-cells = <0>;
++		compatible = "fixed-clock";
++		clock-frequency = <24000000>;
++		clock-output-names = "osc24M";
++	};
++
++	pmu {
++		compatible = "arm,cortex-a55-pmu";
++		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
++	};
++
++	psci {
++		compatible = "arm,psci-0.2";
++		method = "smc";
++	};
++
++	timer {
++		compatible = "arm,armv8-timer";
++		arm,no-tick-in-suspend;
++		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_PPI 14 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_PPI 11 IRQ_TYPE_LEVEL_HIGH>,
++			     <GIC_PPI 10 IRQ_TYPE_LEVEL_HIGH>;
++	};
++
++	soc {
++		compatible = "simple-bus";
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges = <0x0 0x0 0x0 0x40000000>;
++
++		pio: pinctrl@2000000 {
++			compatible = "allwinner,sun55i-a523-pinctrl";
++			reg = <0x2000000 0x800>;
++			interrupts = <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 75 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 77 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 83 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 85 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_APB1>, <&osc24M>, <&rtc CLK_OSC32K>;
++			clock-names = "apb", "hosc", "losc";
++			gpio-controller;
++			#gpio-cells = <3>;
++			interrupt-controller;
++			#interrupt-cells = <3>;
++
++			mmc0_pins: mmc0-pins {
++				pins = "PF0" ,"PF1", "PF2", "PF3", "PF4", "PF5";
++				allwinner,pinmux = <2>;
++				function = "mmc0";
++				drive-strength = <30>;
++				bias-pull-up;
++			};
++
++			/omit-if-no-ref/
++			mmc1_pins: mmc1-pins {
++				pins = "PG0" ,"PG1", "PG2", "PG3", "PG4", "PG5";
++				allwinner,pinmux = <2>;
++				function = "mmc1";
++				drive-strength = <30>;
++				bias-pull-up;
++			};
++
++			mmc2_pins: mmc2-pins {
++				pins = "PC0", "PC1" ,"PC5", "PC6", "PC8",
++				       "PC9", "PC10", "PC11", "PC13", "PC14",
++				       "PC15", "PC16";
++				allwinner,pinmux = <3>;
++				function = "mmc2";
++				drive-strength = <30>;
++				bias-pull-up;
++			};
++
++			uart0_pb_pins: uart0-pb-pins {
++				pins = "PB9", "PB10";
++				allwinner,pinmux = <2>;
++				function = "uart0";
++			};
++		};
++
++		ccu: clock-controller@2001000 {
++			compatible = "allwinner,sun55i-a523-ccu";
++			reg = <0x02001000 0x1000>;
++			clocks = <&osc24M>, <&rtc CLK_OSC32K>,
++				 <&rtc CLK_IOSC>, <&rtc CLK_OSC32K_FANOUT>;
++			clock-names = "hosc", "losc",
++				      "iosc", "losc-fanout";
++			#clock-cells = <1>;
++			#reset-cells = <1>;
++		};
++
++		mmc0: mmc@4020000 {
++			compatible = "allwinner,sun55i-a523-mmc",
++				     "allwinner,sun20i-d1-mmc";
++			reg = <0x04020000 0x1000>;
++			clocks = <&ccu CLK_BUS_MMC0>, <&ccu CLK_MMC0>;
++			clock-names = "ahb", "mmc";
++			resets = <&ccu RST_BUS_MMC0>;
++			reset-names = "ahb";
++			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&mmc0_pins>;
++			status = "disabled";
++
++			max-frequency = <150000000>;
++			cap-sd-highspeed;
++			cap-mmc-highspeed;
++			cap-sdio-irq;
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		mmc1: mmc@4021000 {
++			compatible = "allwinner,sun55i-a523-mmc",
++				     "allwinner,sun20i-d1-mmc";
++			reg = <0x04021000 0x1000>;
++			clocks = <&ccu CLK_BUS_MMC1>, <&ccu CLK_MMC1>;
++			clock-names = "ahb", "mmc";
++			resets = <&ccu RST_BUS_MMC1>;
++			reset-names = "ahb";
++			interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&mmc1_pins>;
++			status = "disabled";
++
++			max-frequency = <150000000>;
++			cap-sd-highspeed;
++			cap-mmc-highspeed;
++			cap-sdio-irq;
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		mmc2: mmc@4022000 {
++			compatible = "allwinner,sun55i-a523-mmc",
++				     "allwinner,sun20i-d1-mmc";
++			reg = <0x04022000 0x1000>;
++			clocks = <&ccu CLK_BUS_MMC2>, <&ccu CLK_MMC2>;
++			clock-names = "ahb", "mmc";
++			resets = <&ccu RST_BUS_MMC2>;
++			reset-names = "ahb";
++			interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&mmc2_pins>;
++			status = "disabled";
++
++			max-frequency = <150000000>;
++			cap-sd-highspeed;
++			cap-mmc-highspeed;
++			cap-sdio-irq;
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		wdt: watchdog@2050000 {
++			compatible = "allwinner,sun55i-a523-wdt";
++			reg = <0x2050000 0x20>;
++			interrupts = <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&osc24M>, <&rtc CLK_OSC32K>;
++			clock-names = "hosc", "losc";
++			status = "okay";
++		};
++
++		uart0: serial@2500000 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02500000 0x400>;
++			interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART0>;
++			resets = <&ccu RST_BUS_UART0>;
++			status = "disabled";
++		};
++
++		uart1: serial@2500400 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02500400 0x400>;
++			interrupts = <GIC_SPI 3 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART1>;
++			resets = <&ccu RST_BUS_UART1>;
++			status = "disabled";
++		};
++
++		uart2: serial@2500800 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02500800 0x400>;
++			interrupts = <GIC_SPI 4 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART2>;
++			resets = <&ccu RST_BUS_UART2>;
++			status = "disabled";
++		};
++
++		uart3: serial@2500c00 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02500c00 0x400>;
++			interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART3>;
++			resets = <&ccu RST_BUS_UART3>;
++			status = "disabled";
++		};
++
++		uart4: serial@2501000 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02501000 0x400>;
++			interrupts = <GIC_SPI 6 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART4>;
++			resets = <&ccu RST_BUS_UART4>;
++			status = "disabled";
++		};
++
++		uart5: serial@2501400 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02501400 0x400>;
++			interrupts = <GIC_SPI 7 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART5>;
++			resets = <&ccu RST_BUS_UART5>;
++			status = "disabled";
++		};
++
++		uart6: serial@2501800 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02501800 0x400>;
++			interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART6>;
++			resets = <&ccu RST_BUS_UART6>;
++			status = "disabled";
++		};
++
++		uart7: serial@2501c00 {
++			compatible = "snps,dw-apb-uart";
++			reg = <0x02501c00 0x400>;
++			interrupts = <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>;
++			reg-shift = <2>;
++			reg-io-width = <4>;
++			clocks = <&ccu CLK_BUS_UART7>;
++			resets = <&ccu RST_BUS_UART7>;
++			status = "disabled";
++		};
++
++		i2c0: i2c@2502000 {
++			compatible = "allwinner,sun55i-a523-i2c",
++				     "allwinner,sun8i-v536-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x2502000 0x400>;
++			interrupts = <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C0>;
++			resets = <&ccu RST_BUS_I2C0>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		i2c1: i2c@2502400 {
++			compatible = "allwinner,sun55i-a523-i2c",
++				     "allwinner,sun8i-v536-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x2502400 0x400>;
++			interrupts = <GIC_SPI 11 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C1>;
++			resets = <&ccu RST_BUS_I2C1>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		i2c2: i2c@2502800 {
++			compatible = "allwinner,sun55i-a523-i2c",
++				     "allwinner,sun8i-v536-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x2502800 0x400>;
++			interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C2>;
++			resets = <&ccu RST_BUS_I2C2>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		i2c3: i2c@2502c00 {
++			compatible = "allwinner,sun55i-a523-i2c",
++				     "allwinner,sun8i-v536-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x2502c00 0x400>;
++			interrupts = <GIC_SPI 13 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C3>;
++			resets = <&ccu RST_BUS_I2C3>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		i2c4: i2c@2503000 {
++			compatible = "allwinner,sun55i-a523-i2c",
++				     "allwinner,sun8i-v536-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x2503000 0x400>;
++			interrupts = <GIC_SPI 14 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C4>;
++			resets = <&ccu RST_BUS_I2C4>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		i2c5: i2c@2503400 {
++			compatible = "allwinner,sun55i-a523-i2c",
++				     "allwinner,sun8i-v536-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x2503400 0x400>;
++			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_I2C5>;
++			resets = <&ccu RST_BUS_I2C5>;
++			status = "disabled";
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		gic: interrupt-controller@3400000 {
++			compatible = "arm,gic-v3";
++			#address-cells = <1>;
++			#interrupt-cells = <3>;
++			#size-cells = <1>;
++			ranges;
++			interrupt-controller;
++			reg = <0x3400000 0x10000>,
++			      <0x3460000 0x100000>;
++			interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
++			dma-noncoherent;
++
++			its: msi-controller@3440000 {
++				compatible = "arm,gic-v3-its";
++				reg = <0x3440000 0x20000>;
++				msi-controller;
++				#msi-cells = <1>;
++				dma-noncoherent;
++			};
++		};
++
++		usb_otg: usb@4100000 {
++			compatible = "allwinner,sun55i-a523-musb",
++				     "allwinner,sun8i-a33-musb";
++			reg = <0x4100000 0x400>;
++			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "mc";
++			clocks = <&ccu CLK_BUS_OTG>;
++			resets = <&ccu RST_BUS_OTG>;
++			extcon = <&usbphy 0>;
++			phys = <&usbphy 0>;
++			phy-names = "usb";
++			status = "disabled";
++		};
++
++		usbphy: phy@4100400 {
++			compatible = "allwinner,sun55i-a523-usb-phy",
++				     "allwinner,sun20i-d1-usb-phy";
++			reg = <0x4100400 0x100>,
++			      <0x4101800 0x100>,
++			      <0x4200800 0x100>;
++			reg-names = "phy_ctrl",
++				    "pmu0",
++				    "pmu1";
++			clocks = <&osc24M>,
++				 <&osc24M>;
++			clock-names = "usb0_phy",
++				      "usb1_phy";
++			resets = <&ccu RST_USB_PHY0>,
++				 <&ccu RST_USB_PHY1>;
++			reset-names = "usb0_reset",
++				      "usb1_reset";
++			status = "disabled";
++			#phy-cells = <1>;
++		};
++
++		ehci0: usb@4101000 {
++			compatible = "allwinner,sun55i-a523-ehci",
++				     "generic-ehci";
++			reg = <0x4101000 0x100>;
++			interrupts = <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_OHCI0>,
++				 <&ccu CLK_BUS_EHCI0>,
++				 <&ccu CLK_USB_OHCI0>;
++			resets = <&ccu RST_BUS_OHCI0>,
++				 <&ccu RST_BUS_EHCI0>;
++			phys = <&usbphy 0>;
++			phy-names = "usb";
++			status = "disabled";
++		};
++
++		ohci0: usb@4101400 {
++			compatible = "allwinner,sun55i-a523-ohci",
++				     "generic-ohci";
++			reg = <0x4101400 0x100>;
++			interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_OHCI0>,
++				 <&ccu CLK_USB_OHCI0>;
++			resets = <&ccu RST_BUS_OHCI0>;
++			phys = <&usbphy 0>;
++			phy-names = "usb";
++			status = "disabled";
++		};
++
++		ehci1: usb@4200000 {
++			compatible = "allwinner,sun55i-a523-ehci",
++				     "generic-ehci";
++			reg = <0x4200000 0x100>;
++			interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_OHCI1>,
++				 <&ccu CLK_BUS_EHCI1>,
++				 <&ccu CLK_USB_OHCI1>;
++			resets = <&ccu RST_BUS_OHCI1>,
++				 <&ccu RST_BUS_EHCI1>;
++			phys = <&usbphy 1>;
++			phy-names = "usb";
++			status = "disabled";
++		};
++
++		ohci1: usb@4200400 {
++			compatible = "allwinner,sun55i-a523-ohci",
++				     "generic-ohci";
++			reg = <0x4200400 0x100>;
++			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_OHCI1>,
++				 <&ccu CLK_USB_OHCI1>;
++			resets = <&ccu RST_BUS_OHCI1>;
++			phys = <&usbphy 1>;
++			phy-names = "usb";
++			status = "disabled";
++		};
++
++		r_ccu: clock-controller@7010000 {
++			compatible = "allwinner,sun55i-a523-r-ccu";
++			reg = <0x7010000 0x250>;
++			clocks = <&osc24M>,
++				 <&rtc CLK_OSC32K>,
++				 <&rtc CLK_IOSC>,
++				 <&ccu CLK_PLL_PERIPH0_200M>,
++				 <&ccu CLK_PLL_AUDIO0_4X>;
++			clock-names = "hosc",
++				      "losc",
++				      "iosc",
++				      "pll-periph",
++				      "pll-audio";
++			#clock-cells = <1>;
++			#reset-cells = <1>;
++		};
++
++		nmi_intc: interrupt-controller@7010320 {
++			compatible = "allwinner,sun55i-a523-nmi";
++			reg = <0x07010320 0xc>;
++			interrupt-controller;
++			#interrupt-cells = <2>;
++			interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
++		};
++
++		r_pio: pinctrl@7022000 {
++			compatible = "allwinner,sun55i-a523-r-pinctrl";
++			reg = <0x7022000 0x800>;
++			interrupts = <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>,
++				     <GIC_SPI 161 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&r_ccu CLK_R_APB0>,
++				 <&osc24M>,
++				 <&rtc CLK_OSC32K>;
++			clock-names = "apb", "hosc", "losc";
++			gpio-controller;
++			#gpio-cells = <3>;
++			interrupt-controller;
++			#interrupt-cells = <3>;
++
++			r_i2c_pins: r-i2c-pins {
++				pins = "PL0" ,"PL1";
++				allwinner,pinmux = <2>;
++				function = "r_i2c0";
++			};
++		};
++
++		r_i2c0: i2c@7081400 {
++			compatible = "allwinner,sun55i-a523-i2c",
++				     "allwinner,sun8i-v536-i2c",
++				     "allwinner,sun6i-a31-i2c";
++			reg = <0x07081400 0x400>;
++			interrupts = <GIC_SPI 164 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&r_ccu CLK_BUS_R_I2C0>;
++			resets = <&r_ccu RST_BUS_R_I2C0>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&r_i2c_pins>;
++			status = "disabled";
++
++			#address-cells = <1>;
++			#size-cells = <0>;
++		};
++
++		rtc: rtc@7090000 {
++			compatible = "allwinner,sun55i-a523-rtc",
++				     "allwinner,sun50i-r329-rtc";
++			reg = <0x7090000 0x400>;
++			interrupts = <GIC_SPI 157 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&r_ccu CLK_BUS_R_RTC>,
++				 <&osc24M>,
++				 <&r_ccu CLK_R_AHB>;
++			clock-names = "bus", "hosc", "ahb";
++			#clock-cells = <1>;
++		};
++	};
++};
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts b/arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts
+new file mode 100644
+index 000000000..912e1bda9
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a527-radxa-a5e.dts
+@@ -0,0 +1,299 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++// Copyright (C) 2025 Arm Ltd.
++
++/dts-v1/;
++
++#include "sun55i-a523.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++
++/ {
++	model = "Radxa A5E";
++	compatible = "radxa,cubie-a5e", "allwinner,sun55i-a527";
++
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	ext_osc32k: ext-osc32k-clk {
++		#clock-cells = <0>;
++		compatible = "fixed-clock";
++		clock-frequency = <32768>;
++		clock-output-names = "ext_osc32k";
++	};
++
++	reg_vcc5v: vcc5v {
++		/* board wide 5V supply from the USB-C connector */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++
++	reg_usb_vbus: vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb-vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		vin-supply = <&reg_vcc5v>;
++		gpio = <&r_pio 0 8 GPIO_ACTIVE_HIGH>;	/* PL8 */
++		enable-active-high;
++	};
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_cldo3>;
++	cd-gpios = <&pio 5 6 (GPIO_ACTIVE_LOW | GPIO_PULL_DOWN)>; /* PF6 */
++	bus-width = <4>;
++	status = "okay";
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&pio {
++	vcc-pb-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pc-supply = <&reg_cldo1>;
++	vcc-pd-supply = <&reg_cldo3>;
++	vcc-pe-supply = <&reg_aldo2>;
++	vcc-pf-supply = <&reg_cldo3>;	/* actually switchable */
++	vcc-pg-supply = <&reg_bldo1>;
++	vcc-ph-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pi-supply = <&reg_cldo3>;
++	vcc-pj-supply = <&reg_cldo4>;
++	vcc-pk-supply = <&reg_cldo1>;
++};
++
++&r_i2c0 {
++	status = "okay";
++
++	axp717: pmic@34 {
++		compatible = "x-powers,axp717";
++		reg = <0x34>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++		vin4-supply = <&reg_vcc5v>;
++		aldoin-supply = <&reg_vcc5v>;
++		bldoin-supply = <&reg_vcc5v>;
++		cldoin-supply = <&reg_vcc5v>;
++
++		regulators {
++			/* Supplies the "little" cluster (1.4 GHz cores) */
++			reg_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpul";
++			};
++
++			reg_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <920000>;
++				regulator-max-microvolt = <920000>;
++				regulator-name = "vdd-gpu-sys";
++			};
++
++			reg_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1100000>;
++				regulator-max-microvolt = <1100000>;
++				regulator-name = "vdd-dram";
++			};
++
++			reg_aldo1: aldo1 {
++				/* not connected */
++			};
++
++			reg_aldo2: aldo2 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pe";
++			};
++
++			reg_aldo3: aldo3 {
++				/* supplies the I2C pins for this PMIC */
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-pl-usb";
++			};
++
++			reg_aldo4: aldo4 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pll-dxco-avcc";
++			};
++
++			reg_bldo1: bldo1 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pg-iowifi";
++			};
++
++			reg_bldo2: bldo2 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pm-lpddr4";
++			};
++
++			reg_bldo3: bldo3 {
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-mipi-cam";
++			};
++
++			reg_bldo4: bldo4 {
++				/* not connected */
++			};
++
++			reg_cldo1: cldo1 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pc-and-their-dog";
++			};
++
++			reg_cldo2: cldo2 {
++				/* not connected */
++			};
++
++			reg_cldo3: cldo3 {
++				/* IO, USB-2, 3V3, card, NAND, sensor, PI */
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-io-mmc-spi-ana";
++			};
++
++			reg_cldo4: cldo4 {
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-pj-phy";
++			};
++
++			reg_cpusldo: cpusldo {
++				/* supplies the management core */
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-cpus";
++			};
++		};
++	};
++
++	axp323: pmic@36 {
++		compatible = "x-powers,axp323";
++		reg = <0x36>;
++		#interrupt-cells = <1>;
++		interrupt-controller;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++		status = "okay";
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++
++		regulators {
++			aldo1 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-mipi-dsi";
++			};
++
++			dldo1 {
++				/* not connected */
++			};
++
++			/* Supplies the "big" cluster (1.8 GHz cores) */
++			reg_dcdc1_323: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpub";
++			};
++
++			/* DCDC2 is polyphased with DCDC1 */
++
++			/* RISC-V management core supply */
++			reg_dcdc3_323: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-dnr";
++			};
++		};
++	};
++};
++
++&r_pio {
++/*
++ * Specifying the supply would create a circular dependency.
++ *
++ *	vcc-pl-supply = <&reg_aldo3>;
++ */
++	vcc-pm-supply = <&reg_aldo3>;
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pb_pins>;
++	status = "okay";
++};
++
++&usb_otg {
++	/*
++	 * The USB-C port is the primary power supply, so in this configuration
++	 * relies on the other end of the USB cable to supply the VBUS power.
++	 * So use this port in peripheral mode.
++	 * It is possible to supply the board with the 5V pins on the GPIO
++	 * header, and since the DCIN_5V line is hardwired to the USB-C VBUS
++	 * pins, the port turns into a host port, unconditionally supplying
++	 * power. The dr_mode property should be changed to "host" here, if
++	 * users choose this setup.
++	 */
++	dr_mode = "peripheral";
++	status = "okay";
++};
++
++/*
++ * The schematic describes USB0_ID (PL10), measuring VBUS_5V, which looks to
++ * be always on. Also there is USB-VBUSDET (PL2), which is measuring the same
++ * VBUS_5V. There is also DCIN_DET, which measures DCIN_5V, so the power
++ * input rail.
++ * None of them seem to make any sense in relation to detecting USB devices
++ * or whether there is power provided via any USB pins: they would always
++ * report high, otherwise the system wouldn't be running.
++ * The AXP717C provides proper USB-C CC pin functionality, but the PMIC is
++ * not connected to those pins of the USB-C connector.
++ */
++&usbphy {
++	usb0_vbus-supply = <&reg_vcc5v>;
++	usb1_vbus-supply = <&reg_usb_vbus>;
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts b/arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts
+new file mode 100644
+index 000000000..c0bce3f4f
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun55i-h728-x96qpro+.dts
+@@ -0,0 +1,287 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++// Copyright (C) 2024 Arm Ltd.
++
++/dts-v1/;
++
++#include "sun55i-a523.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++
++/ {
++	model = "X96Q Pro+";
++	compatible = "amediatech,x96q-pro-plus", "allwinner,sun55i-h728";
++
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	ext_osc32k: ext-osc32k-clk {
++		#clock-cells = <0>;
++		compatible = "fixed-clock";
++		clock-frequency = <32768>;
++		clock-output-names = "ext_osc32k";
++	};
++
++	reg_vcc5v: vcc5v {
++		/* board wide 5V supply from the barrel plug */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		regulator-always-on;
++	};
++
++	reg_vcc3v3: vcc3v3 {
++		/* 3.3V dummy supply for the SD card */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-3v3";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++		vin-supply = <&reg_vcc5v>;
++		regulator-always-on;
++	};
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_vcc3v3>;
++	cd-gpios = <&pio 5 6 (GPIO_ACTIVE_LOW | GPIO_PULL_DOWN)>; /* PF6 */
++	bus-width = <4>;
++	disable-wp;
++	status = "okay";
++};
++
++&mmc2 {
++	vmmc-supply = <&reg_cldo3>;
++	vqmmc-supply = <&reg_cldo1>;
++	bus-width = <8>;
++	non-removable;
++	cap-mmc-hw-reset;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++	status = "okay";
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&pio {
++	vcc-pb-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pc-supply = <&reg_cldo1>;
++	vcc-pd-supply = <&reg_dcdc4>;
++	vcc-pe-supply = <&reg_dcdc4>;
++	vcc-pf-supply = <&reg_cldo3>;	/* actually switchable */
++	vcc-pg-supply = <&reg_bldo1>;
++	vcc-ph-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pi-supply = <&reg_dcdc4>;
++	vcc-pj-supply = <&reg_dcdc4>;
++	vcc-pk-supply = <&reg_bldo3>;
++};
++
++&r_i2c0 {
++	status = "okay";
++
++	axp717: pmic@34 {
++		compatible = "x-powers,axp717";
++		reg = <0x34>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++		vin4-supply = <&reg_vcc5v>;
++		aldoin-supply = <&reg_vcc5v>;
++		bldoin-supply = <&reg_vcc5v>;
++		cldoin-supply = <&reg_vcc5v>;
++
++		regulators {
++			/* Supplies the "little" cluster (1.0(?) GHz cores) */
++			reg_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpul";
++			};
++
++			reg_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <920000>;
++				regulator-max-microvolt = <920000>;
++				regulator-name = "vdd-gpu-sys";
++			};
++
++			reg_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1360000>;
++				regulator-max-microvolt = <1360000>;
++				regulator-name = "vdd-dram";
++			};
++
++			reg_dcdc4: dcdc4 {
++				regulator-min-microvolt = <1000000>;
++				regulator-max-microvolt = <1000000>;
++				regulator-name = "vdd-dcdc4";
++			};
++
++			reg_aldo1: aldo1 {
++				/* not connected */
++			};
++
++			reg_aldo2: aldo2 {
++				/* not connected */
++			};
++
++			reg_aldo3: aldo3 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-aldo3";
++			};
++
++			reg_aldo4: aldo4 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pll-dxco-avcc";
++			};
++
++			reg_bldo1: bldo1 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pg-wifi-lvds";
++			};
++
++			reg_bldo2: bldo2 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-dram-1v8";
++			};
++
++			reg_bldo3: bldo3 {
++				regulator-min-microvolt = <2800000>;
++				regulator-max-microvolt = <2800000>;
++				regulator-name = "vcc-bldo3";
++			};
++
++			reg_bldo4: bldo4 {
++				/* not connected */
++			};
++
++			reg_cldo1: cldo1 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-codec-sd";
++			};
++
++			reg_cldo2: cldo2 {
++			};
++
++			reg_cldo3: cldo3 {
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-codec-eth-sd";
++			};
++
++			reg_cldo4: cldo4 {
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-eth-phy";
++			};
++
++			reg_cpusldo: cpusldo {
++				/* supplies the management core */
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-cpus";
++			};
++		};
++	};
++
++	axp323: pmic@36 {
++		compatible = "x-powers,axp323";
++		reg = <0x36>;
++		#interrupt-cells = <1>;
++		interrupt-controller;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++		status = "okay";
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++
++		regulators {
++			aldo1 {
++				/* not connected */
++			};
++
++			dldo1 {
++				/* not connected */
++			};
++
++			/* Supplies the "big" cluster (1.8 GHz cores) */
++			reg_dcdc1_323: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpub";
++			};
++
++			/* DCDC2 is polyphased with DCDC1 */
++
++			reg_dcdc3_323: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1050000>;
++				regulator-max-microvolt = <1050000>;
++				regulator-name = "vdd-dcdc3";
++			};
++		};
++	};
++};
++
++&r_pio {
++/*
++ * Specifying the supply would create a circular dependency.
++ *
++ *	vcc-pl-supply = <&reg_aldo3>;
++ */
++	vcc-pm-supply = <&reg_aldo3>;
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pb_pins>;
++	status = "okay";
++};
++
++&usb_otg {
++	/* USB0 is a USB-A receptacle, always powered, so force host mode. */
++	dr_mode = "host";
++	status = "okay";
++};
++
++&usbphy {
++	status = "okay";
++};
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts b/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
+new file mode 100644
+index 000000000..85a546aec
+--- /dev/null
++++ b/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
+@@ -0,0 +1,308 @@
++// SPDX-License-Identifier: (GPL-2.0-only OR MIT)
++// Copyright (C) 2024 Arm Ltd.
++
++/dts-v1/;
++
++#include "sun55i-a523.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++
++/ {
++	model = "Avaota A1";
++	compatible = "yuzukihd,avaota-a1", "allwinner,sun55i-t527";
++
++	aliases {
++		serial0 = &uart0;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++	};
++
++	ext_osc32k: ext-osc32k-clk {
++		#clock-cells = <0>;
++		compatible = "fixed-clock";
++		clock-frequency = <32768>;
++		clock-output-names = "ext_osc32k";
++	};
++
++	reg_vcc12v: vcc12v {
++		/* DC input jack */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-12v";
++		regulator-min-microvolt = <12000000>;
++		regulator-max-microvolt = <12000000>;
++		regulator-always-on;
++	};
++
++	reg_vcc5v: vcc5v {
++		/* board wide 5V supply from the 12V->5V regulator */
++		compatible = "regulator-fixed";
++		regulator-name = "vcc-5v";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		vin-supply = <&reg_vcc12v>;
++		regulator-always-on;
++	};
++
++	reg_usb_vbus: vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb-vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		vin-supply = <&reg_vcc5v>;
++		gpio = <&pio 8 12 GPIO_ACTIVE_HIGH>;	/* PI12 */
++		enable-active-high;
++	};
++};
++
++&ehci0 {
++	status = "okay";
++};
++
++&ehci1 {
++	status = "okay";
++};
++
++&mmc0 {
++	vmmc-supply = <&reg_cldo3>;
++	cd-gpios = <&pio 5 6 (GPIO_ACTIVE_LOW | GPIO_PULL_DOWN)>; /* PF6 */
++	bus-width = <4>;
++	status = "okay";
++};
++
++&mmc2 {
++	bus-width = <8>;
++	cap-mmc-hw-reset;
++	mmc-ddr-1_8v;
++	mmc-hs200-1_8v;
++	non-removable;
++	vmmc-supply = <&reg_cldo3>;
++	vqmmc-supply = <&reg_cldo1>;
++	status = "okay";
++};
++
++&ohci0 {
++	status = "okay";
++};
++
++&ohci1 {
++	status = "okay";
++};
++
++&pio {
++	vcc-pb-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pc-supply = <&reg_cldo1>;
++	vcc-pd-supply = <&reg_dcdc4>;
++	vcc-pe-supply = <&reg_dcdc4>;
++	vcc-pf-supply = <&reg_cldo3>;	/* actually switchable */
++	vcc-pg-supply = <&reg_bldo1>;
++	vcc-ph-supply = <&reg_cldo3>;	/* via VCC-IO */
++	vcc-pi-supply = <&reg_dcdc4>;
++	vcc-pj-supply = <&reg_dcdc4>;
++	vcc-pk-supply = <&reg_bldo3>;
++};
++
++&r_i2c0 {
++	status = "okay";
++
++	axp717: pmic@35 {
++		compatible = "x-powers,axp717";
++		reg = <0x35>;
++		interrupt-controller;
++		#interrupt-cells = <1>;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++		vin4-supply = <&reg_vcc5v>;
++		aldoin-supply = <&reg_vcc5v>;
++		bldoin-supply = <&reg_vcc5v>;
++		cldoin-supply = <&reg_vcc5v>;
++
++		regulators {
++			/* Supplies the "little" cluster (1.4 GHz cores) */
++			reg_dcdc1: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpul";
++			};
++
++			reg_dcdc2: dcdc2 {
++				regulator-always-on;
++				regulator-min-microvolt = <920000>;
++				regulator-max-microvolt = <920000>;
++				regulator-name = "vdd-gpu-sys";
++			};
++
++			reg_dcdc3: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <1160000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-dram";
++			};
++
++			reg_dcdc4: dcdc4 {
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vdd-io";
++			};
++
++			reg_aldo1: aldo1 {
++				/* not connected */
++			};
++
++			reg_aldo2: aldo2 {
++				/* not connected */
++			};
++
++			reg_aldo3: aldo3 {
++				/* supplies the I2C pins for this PMIC */
++				regulator-always-on;
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-pl-pm";
++			};
++
++			reg_aldo4: aldo4 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pll-dxco-avcc";
++			};
++
++			reg_bldo1: bldo1 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pg-wifi-lvds";
++			};
++
++			reg_bldo2: bldo2 {
++				regulator-always-on;
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-dram-1v8";
++			};
++
++			reg_bldo3: bldo3 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-cvp-pk-vid1v8";
++			};
++
++			reg_bldo4: bldo4 {
++				/* not connected */
++			};
++
++			reg_cldo1: cldo1 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-pc";
++			};
++
++			reg_cldo2: cldo2 {
++				regulator-min-microvolt = <1800000>;
++				regulator-max-microvolt = <1800000>;
++				regulator-name = "vcc-efuse";
++			};
++
++			reg_cldo3: cldo3 {
++				regulator-min-microvolt = <3300000>;
++				regulator-max-microvolt = <3300000>;
++				regulator-name = "vcc-io-mmc-spi-ana";
++			};
++
++			reg_cldo4: cldo4 {
++				/* not connected */
++			};
++
++			reg_cpusldo: cpusldo {
++				/* supplies the management core */
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-cpus";
++			};
++		};
++	};
++
++	axp323: pmic@36 {
++		compatible = "x-powers,axp323";
++		reg = <0x36>;
++		#interrupt-cells = <1>;
++		interrupt-controller;
++		interrupt-parent = <&nmi_intc>;
++		interrupts = <0 IRQ_TYPE_LEVEL_LOW>;
++		status = "okay";
++
++		vin1-supply = <&reg_vcc5v>;
++		vin2-supply = <&reg_vcc5v>;
++		vin3-supply = <&reg_vcc5v>;
++
++		regulators {
++			aldo1 {
++				/* not connected */
++			};
++
++			dldo1 {
++				/* not connected */
++			};
++
++			/* Supplies the "big" cluster (1.8 GHz cores) */
++			reg_dcdc1_323: dcdc1 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <1160000>;
++				regulator-name = "vdd-cpub";
++			};
++
++			/* DCDC2 is polyphased with DCDC1 */
++
++			/* Some RISC-V management core related voltage */
++			reg_dcdc3_323: dcdc3 {
++				regulator-always-on;
++				regulator-min-microvolt = <900000>;
++				regulator-max-microvolt = <900000>;
++				regulator-name = "vdd-dnr";
++			};
++		};
++	};
++};
++
++&r_pio {
++/*
++ * Specifying the supply would create a circular dependency.
++ *
++ *	vcc-pl-supply = <&reg_aldo3>;
++ */
++	vcc-pm-supply = <&reg_aldo3>;
++};
++
++&uart0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart0_pb_pins>;
++	status = "okay";
++};
++
++&usb_otg {
++	 /*
++	  * The CC pins of the USB-C port have two pull-down resistors
++	  * connected to GND, which fixes this port to a peripheral role.
++	  * There is a regulator, controlled by a GPIO, to provide VBUS power
++	  * to the port, and a VBUSDET GPIO, to detect externally provided
++	  * power, but without the CC pins there is no real way to do a
++	  * runtime role detection.
++	  */
++	dr_mode = "peripheral";
++	status = "okay";
++};
++
++&usbphy {
++	usb0_vbus-supply = <&reg_usb_vbus>;
++	usb0_vbus_det-gpios = <&pio 8 13 GPIO_ACTIVE_HIGH>; /* PI13 */
++	status = "okay";
++};
+diff --git a/drivers/irqchip/irq-sunxi-nmi.c b/drivers/irqchip/irq-sunxi-nmi.c
+index 0b4312152..b05904a14 100644
+--- a/drivers/irqchip/irq-sunxi-nmi.c
++++ b/drivers/irqchip/irq-sunxi-nmi.c
+@@ -48,28 +48,38 @@ enum {
+ 	SUNXI_SRC_TYPE_EDGE_RISING,
+ };
+ 
+-struct sunxi_sc_nmi_reg_offs {
+-	u32 ctrl;
+-	u32 pend;
+-	u32 enable;
++struct sunxi_sc_nmi_data {
++	struct {
++		u32 ctrl;
++		u32 pend;
++		u32 enable;
++	} reg_offs;
++	u32 enable_val;
+ };
+ 
+-static const struct sunxi_sc_nmi_reg_offs sun6i_reg_offs __initconst = {
+-	.ctrl	= SUN6I_NMI_CTRL,
+-	.pend	= SUN6I_NMI_PENDING,
+-	.enable	= SUN6I_NMI_ENABLE,
++static const struct sunxi_sc_nmi_data sun6i_data __initconst = {
++	.reg_offs.ctrl		= SUN6I_NMI_CTRL,
++	.reg_offs.pend		= SUN6I_NMI_PENDING,
++	.reg_offs.enable	= SUN6I_NMI_ENABLE,
+ };
+ 
+-static const struct sunxi_sc_nmi_reg_offs sun7i_reg_offs __initconst = {
+-	.ctrl	= SUN7I_NMI_CTRL,
+-	.pend	= SUN7I_NMI_PENDING,
+-	.enable	= SUN7I_NMI_ENABLE,
++static const struct sunxi_sc_nmi_data sun7i_data __initconst = {
++	.reg_offs.ctrl		= SUN7I_NMI_CTRL,
++	.reg_offs.pend		= SUN7I_NMI_PENDING,
++	.reg_offs.enable	= SUN7I_NMI_ENABLE,
+ };
+ 
+-static const struct sunxi_sc_nmi_reg_offs sun9i_reg_offs __initconst = {
+-	.ctrl	= SUN9I_NMI_CTRL,
+-	.pend	= SUN9I_NMI_PENDING,
+-	.enable	= SUN9I_NMI_ENABLE,
++static const struct sunxi_sc_nmi_data sun9i_data __initconst = {
++	.reg_offs.ctrl		= SUN9I_NMI_CTRL,
++	.reg_offs.pend		= SUN9I_NMI_PENDING,
++	.reg_offs.enable	= SUN9I_NMI_ENABLE,
++};
++
++static const struct sunxi_sc_nmi_data sun55i_a523_data __initconst = {
++	.reg_offs.ctrl		= SUN9I_NMI_CTRL,
++	.reg_offs.pend		= SUN9I_NMI_PENDING,
++	.reg_offs.enable	= SUN9I_NMI_ENABLE,
++	.enable_val		= BIT(31),
+ };
+ 
+ static inline void sunxi_sc_nmi_write(struct irq_chip_generic *gc, u32 off,
+@@ -143,7 +153,7 @@ static int sunxi_sc_nmi_set_type(struct irq_data *data, unsigned int flow_type)
+ }
+ 
+ static int __init sunxi_sc_nmi_irq_init(struct device_node *node,
+-					const struct sunxi_sc_nmi_reg_offs *reg_offs)
++					const struct sunxi_sc_nmi_data *data)
+ {
+ 	struct irq_domain *domain;
+ 	struct irq_chip_generic *gc;
+@@ -186,27 +196,28 @@ static int __init sunxi_sc_nmi_irq_init(struct device_node *node,
+ 	gc->chip_types[0].chip.irq_unmask	= irq_gc_mask_set_bit;
+ 	gc->chip_types[0].chip.irq_eoi		= irq_gc_ack_set_bit;
+ 	gc->chip_types[0].chip.irq_set_type	= sunxi_sc_nmi_set_type;
+-	gc->chip_types[0].chip.flags		= IRQCHIP_EOI_THREADED | IRQCHIP_EOI_IF_HANDLED |
++	gc->chip_types[0].chip.flags		= IRQCHIP_EOI_THREADED |
++						  IRQCHIP_EOI_IF_HANDLED |
+ 						  IRQCHIP_SKIP_SET_WAKE;
+-	gc->chip_types[0].regs.ack		= reg_offs->pend;
+-	gc->chip_types[0].regs.mask		= reg_offs->enable;
+-	gc->chip_types[0].regs.type		= reg_offs->ctrl;
++	gc->chip_types[0].regs.ack		= data->reg_offs.pend;
++	gc->chip_types[0].regs.mask		= data->reg_offs.enable;
++	gc->chip_types[0].regs.type		= data->reg_offs.ctrl;
+ 
+ 	gc->chip_types[1].type			= IRQ_TYPE_EDGE_BOTH;
+ 	gc->chip_types[1].chip.irq_ack		= irq_gc_ack_set_bit;
+ 	gc->chip_types[1].chip.irq_mask		= irq_gc_mask_clr_bit;
+ 	gc->chip_types[1].chip.irq_unmask	= irq_gc_mask_set_bit;
+ 	gc->chip_types[1].chip.irq_set_type	= sunxi_sc_nmi_set_type;
+-	gc->chip_types[1].regs.ack		= reg_offs->pend;
+-	gc->chip_types[1].regs.mask		= reg_offs->enable;
+-	gc->chip_types[1].regs.type		= reg_offs->ctrl;
++	gc->chip_types[1].regs.ack		= data->reg_offs.pend;
++	gc->chip_types[1].regs.mask		= data->reg_offs.enable;
++	gc->chip_types[1].regs.type		= data->reg_offs.ctrl;
+ 	gc->chip_types[1].handler		= handle_edge_irq;
+ 
+ 	/* Disable any active interrupts */
+-	sunxi_sc_nmi_write(gc, reg_offs->enable, 0);
++	sunxi_sc_nmi_write(gc, data->reg_offs.enable, data->enable_val);
+ 
+ 	/* Clear any pending NMI interrupts */
+-	sunxi_sc_nmi_write(gc, reg_offs->pend, SUNXI_NMI_IRQ_BIT);
++	sunxi_sc_nmi_write(gc, data->reg_offs.pend, SUNXI_NMI_IRQ_BIT);
+ 
+ 	irq_set_chained_handler_and_data(irq, sunxi_sc_nmi_handle_irq, domain);
+ 
+@@ -221,20 +232,27 @@ static int __init sunxi_sc_nmi_irq_init(struct device_node *node,
+ static int __init sun6i_sc_nmi_irq_init(struct device_node *node,
+ 					struct device_node *parent)
+ {
+-	return sunxi_sc_nmi_irq_init(node, &sun6i_reg_offs);
++	return sunxi_sc_nmi_irq_init(node, &sun6i_data);
+ }
+ IRQCHIP_DECLARE(sun6i_sc_nmi, "allwinner,sun6i-a31-sc-nmi", sun6i_sc_nmi_irq_init);
+ 
+ static int __init sun7i_sc_nmi_irq_init(struct device_node *node,
+ 					struct device_node *parent)
+ {
+-	return sunxi_sc_nmi_irq_init(node, &sun7i_reg_offs);
++	return sunxi_sc_nmi_irq_init(node, &sun7i_data);
+ }
+ IRQCHIP_DECLARE(sun7i_sc_nmi, "allwinner,sun7i-a20-sc-nmi", sun7i_sc_nmi_irq_init);
+ 
+ static int __init sun9i_nmi_irq_init(struct device_node *node,
+ 				     struct device_node *parent)
+ {
+-	return sunxi_sc_nmi_irq_init(node, &sun9i_reg_offs);
++	return sunxi_sc_nmi_irq_init(node, &sun9i_data);
+ }
+ IRQCHIP_DECLARE(sun9i_nmi, "allwinner,sun9i-a80-nmi", sun9i_nmi_irq_init);
++
++static int __init sun55i_nmi_irq_init(struct device_node *node,
++				      struct device_node *parent)
++{
++	return sunxi_sc_nmi_irq_init(node, &sun55i_a523_data);
++}
++IRQCHIP_DECLARE(sun55i_nmi, "allwinner,sun55i-a523-nmi", sun55i_nmi_irq_init);
+diff --git a/drivers/watchdog/sunxi_wdt.c b/drivers/watchdog/sunxi_wdt.c
+index 03575c851..26793bf8a 100644
+--- a/drivers/watchdog/sunxi_wdt.c
++++ b/drivers/watchdog/sunxi_wdt.c
+@@ -236,10 +236,21 @@ static const struct sunxi_wdt_reg sun20i_wdt_reg = {
+ 	.wdt_key_val = 0x16aa0000,
+ };
+ 
++static const struct sunxi_wdt_reg sun55i_wdt_reg = {
++	.wdt_ctrl = 0x0c,
++	.wdt_cfg = 0x10,
++	.wdt_mode = 0x14,
++	.wdt_timeout_shift = 4,
++	.wdt_reset_mask = 0x03,
++	.wdt_reset_val = 0x01,
++	.wdt_key_val = 0x16aa0000,
++};
++
+ static const struct of_device_id sunxi_wdt_dt_ids[] = {
+ 	{ .compatible = "allwinner,sun4i-a10-wdt", .data = &sun4i_wdt_reg },
+ 	{ .compatible = "allwinner,sun6i-a31-wdt", .data = &sun6i_wdt_reg },
+ 	{ .compatible = "allwinner,sun20i-d1-wdt", .data = &sun20i_wdt_reg },
++	{ .compatible = "allwinner,sun55i-a523-wdt", .data = &sun55i_wdt_reg },
+ 	{ .compatible = "allwinner,suniv-f1c100s-wdt", .data = &sun6i_wdt_reg },
+ 	{ /* sentinel */ }
+ };
+-- 
+2.53.0
+

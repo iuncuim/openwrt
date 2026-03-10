@@ -1,0 +1,249 @@
+From 00a3932cdcd0513a3f0845f67cb8e6dc10449f9f Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Sat, 7 Feb 2026 12:10:27 +0800
+Subject: [PATCH 05/23] Update x-powers,axp152.yaml, axp20x-i2c.c, and 3 more
+ files...
+
+---
+ .../bindings/mfd/x-powers,axp152.yaml         |  3 +
+ drivers/mfd/axp20x-i2c.c                      |  1 +
+ drivers/mfd/axp20x.c                          | 58 ++++++++++++++-----
+ drivers/regulator/axp20x-regulator.c          | 13 ++++-
+ include/linux/mfd/axp20x.h                    |  4 +-
+ 5 files changed, 61 insertions(+), 18 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/mfd/x-powers,axp152.yaml b/Documentation/devicetree/bindings/mfd/x-powers,axp152.yaml
+index 14ab367fc..3f7661bdd 100644
+--- a/Documentation/devicetree/bindings/mfd/x-powers,axp152.yaml
++++ b/Documentation/devicetree/bindings/mfd/x-powers,axp152.yaml
+@@ -71,6 +71,7 @@ allOf:
+                 - x-powers,axp15060
+                 - x-powers,axp305
+                 - x-powers,axp313a
++                - x-powers,axp323
+ 
+     then:
+       required:
+@@ -82,6 +83,7 @@ allOf:
+           contains:
+             enum:
+               - x-powers,axp313a
++              - x-powers,axp323
+               - x-powers,axp15060
+               - x-powers,axp717
+ 
+@@ -100,6 +102,7 @@ properties:
+           - x-powers,axp221
+           - x-powers,axp223
+           - x-powers,axp313a
++          - x-powers,axp323
+           - x-powers,axp717
+           - x-powers,axp803
+           - x-powers,axp806
+diff --git a/drivers/mfd/axp20x-i2c.c b/drivers/mfd/axp20x-i2c.c
+index 791a0b4cb..5c93136f9 100644
+--- a/drivers/mfd/axp20x-i2c.c
++++ b/drivers/mfd/axp20x-i2c.c
+@@ -65,6 +65,7 @@ static const struct of_device_id axp20x_i2c_of_match[] = {
+ 	{ .compatible = "x-powers,axp221", .data = (void *)AXP221_ID },
+ 	{ .compatible = "x-powers,axp223", .data = (void *)AXP223_ID },
+ 	{ .compatible = "x-powers,axp313a", .data = (void *)AXP313A_ID },
++	{ .compatible = "x-powers,axp323", .data = (void *)AXP323_ID },
+ 	{ .compatible = "x-powers,axp717", .data = (void *)AXP717_ID },
+ 	{ .compatible = "x-powers,axp803", .data = (void *)AXP803_ID },
+ 	{ .compatible = "x-powers,axp806", .data = (void *)AXP806_ID },
+diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
+index cbf1029d0..74ba5a358 100644
+--- a/drivers/mfd/axp20x.c
++++ b/drivers/mfd/axp20x.c
+@@ -34,20 +34,21 @@
+ #define AXP806_REG_ADDR_EXT_ADDR_SLAVE_MODE	BIT(4)
+ 
+ static const char * const axp20x_model_names[] = {
+-	"AXP152",
+-	"AXP192",
+-	"AXP202",
+-	"AXP209",
+-	"AXP221",
+-	"AXP223",
+-	"AXP288",
+-	"AXP313a",
+-	"AXP717",
+-	"AXP803",
+-	"AXP806",
+-	"AXP809",
+-	"AXP813",
+-	"AXP15060",
++	[AXP152_ID] = "AXP152",
++	[AXP192_ID] = "AXP192",
++	[AXP202_ID] = "AXP202",
++	[AXP209_ID] = "AXP209",
++	[AXP221_ID] = "AXP221",
++	[AXP223_ID] = "AXP223",
++	[AXP288_ID] = "AXP288",
++	[AXP313A_ID] = "AXP313a",
++	[AXP323_ID] = "AXP323",
++	[AXP717_ID] = "AXP717",
++	[AXP803_ID] = "AXP803",
++	[AXP806_ID] = "AXP806",
++	[AXP809_ID] = "AXP809",
++	[AXP813_ID] = "AXP813",
++	[AXP15060_ID] = "AXP15060",
+ };
+ 
+ static const struct regmap_range axp152_writeable_ranges[] = {
+@@ -193,6 +194,10 @@ static const struct regmap_range axp313a_writeable_ranges[] = {
+ 	regmap_reg_range(AXP313A_ON_INDICATE, AXP313A_IRQ_STATE),
+ };
+ 
++static const struct regmap_range axp323_writeable_ranges[] = {
++	regmap_reg_range(AXP313A_ON_INDICATE, AXP323_DCDC_MODE_CTRL2),
++};
++
+ static const struct regmap_range axp313a_volatile_ranges[] = {
+ 	regmap_reg_range(AXP313A_SHUTDOWN_CTRL, AXP313A_SHUTDOWN_CTRL),
+ 	regmap_reg_range(AXP313A_IRQ_STATE, AXP313A_IRQ_STATE),
+@@ -203,6 +208,11 @@ static const struct regmap_access_table axp313a_writeable_table = {
+ 	.n_yes_ranges = ARRAY_SIZE(axp313a_writeable_ranges),
+ };
+ 
++static const struct regmap_access_table axp323_writeable_table = {
++	.yes_ranges = axp323_writeable_ranges,
++	.n_yes_ranges = ARRAY_SIZE(axp323_writeable_ranges),
++};
++
+ static const struct regmap_access_table axp313a_volatile_table = {
+ 	.yes_ranges = axp313a_volatile_ranges,
+ 	.n_yes_ranges = ARRAY_SIZE(axp313a_volatile_ranges),
+@@ -434,6 +444,15 @@ static const struct regmap_config axp313a_regmap_config = {
+ 	.cache_type = REGCACHE_MAPLE,
+ };
+ 
++static const struct regmap_config axp323_regmap_config = {
++	.reg_bits = 8,
++	.val_bits = 8,
++	.wr_table = &axp323_writeable_table,
++	.volatile_table = &axp313a_volatile_table,
++	.max_register = AXP323_DCDC_MODE_CTRL2,
++	.cache_type = REGCACHE_MAPLE,
++};
++
+ static const struct regmap_config axp717_regmap_config = {
+ 	.reg_bits = 8,
+ 	.val_bits = 8,
+@@ -1223,6 +1242,7 @@ static int axp20x_power_off(struct sys_off_data *data)
+ 	unsigned int shutdown_reg;
+ 
+ 	switch (axp20x->variant) {
++	case AXP323_ID:
+ 	case AXP313A_ID:
+ 		shutdown_reg = AXP313A_SHUTDOWN_CTRL;
+ 		break;
+@@ -1291,6 +1311,12 @@ int axp20x_match_device(struct axp20x_dev *axp20x)
+ 		axp20x->regmap_cfg = &axp313a_regmap_config;
+ 		axp20x->regmap_irq_chip = &axp313a_regmap_irq_chip;
+ 		break;
++	case AXP323_ID:
++		axp20x->nr_cells = ARRAY_SIZE(axp313a_cells);
++		axp20x->cells = axp313a_cells;
++		axp20x->regmap_cfg = &axp323_regmap_config;
++		axp20x->regmap_irq_chip = &axp313a_regmap_irq_chip;
++		break;
+ 	case AXP717_ID:
+ 		axp20x->nr_cells = ARRAY_SIZE(axp717_cells);
+ 		axp20x->cells = axp717_cells;
+@@ -1347,7 +1373,7 @@ int axp20x_match_device(struct axp20x_dev *axp20x)
+ 		axp20x->regmap_irq_chip = &axp15060_regmap_irq_chip;
+ 		break;
+ 	default:
+-		dev_err(dev, "unsupported AXP20X ID %lu\n", axp20x->variant);
++		dev_err(dev, "unsupported AXP20X ID %u\n", axp20x->variant);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1421,7 +1447,7 @@ int axp20x_device_probe(struct axp20x_dev *axp20x)
+ 		}
+ 	}
+ 
+-	ret = mfd_add_devices(axp20x->dev, -1, axp20x->cells,
++	ret = mfd_add_devices(axp20x->dev, PLATFORM_DEVID_AUTO, axp20x->cells,
+ 			      axp20x->nr_cells, NULL, 0, NULL);
+ 
+ 	if (ret) {
+diff --git a/drivers/regulator/axp20x-regulator.c b/drivers/regulator/axp20x-regulator.c
+index 945d2917b..dca99cfb7 100644
+--- a/drivers/regulator/axp20x-regulator.c
++++ b/drivers/regulator/axp20x-regulator.c
+@@ -1353,6 +1353,7 @@ static int axp20x_set_dcdc_freq(struct platform_device *pdev, u32 dcdcfreq)
+ 		step = 150;
+ 		break;
+ 	case AXP313A_ID:
++	case AXP323_ID:
+ 	case AXP717_ID:
+ 	case AXP15060_ID:
+ 		/* The DCDC PWM frequency seems to be fixed to 3 MHz. */
+@@ -1539,6 +1540,15 @@ static bool axp20x_is_polyphase_slave(struct axp20x_dev *axp20x, int id)
+ 		}
+ 		break;
+ 
++	case AXP323_ID:
++		regmap_read(axp20x->regmap, AXP323_DCDC_MODE_CTRL2, &reg);
++
++		switch (id) {
++		case AXP313A_DCDC2:
++			return !!(reg & BIT(1));
++		}
++		break;
++
+ 	default:
+ 		return false;
+ 	}
+@@ -1577,6 +1587,7 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
+ 						  "x-powers,drive-vbus-en");
+ 		break;
+ 	case AXP313A_ID:
++	case AXP323_ID:
+ 		regulators = axp313a_regulators;
+ 		nregulators = AXP313A_REG_ID_MAX;
+ 		break;
+@@ -1609,7 +1620,7 @@ static int axp20x_regulator_probe(struct platform_device *pdev)
+ 		nregulators = AXP15060_REG_ID_MAX;
+ 		break;
+ 	default:
+-		dev_err(&pdev->dev, "Unsupported AXP variant: %ld\n",
++		dev_err(&pdev->dev, "Unsupported AXP variant: %d\n",
+ 			axp20x->variant);
+ 		return -EINVAL;
+ 	}
+diff --git a/include/linux/mfd/axp20x.h b/include/linux/mfd/axp20x.h
+index d1c21ad64..3c5aecf1d 100644
+--- a/include/linux/mfd/axp20x.h
++++ b/include/linux/mfd/axp20x.h
+@@ -19,6 +19,7 @@ enum axp20x_variants {
+ 	AXP223_ID,
+ 	AXP288_ID,
+ 	AXP313A_ID,
++	AXP323_ID,
+ 	AXP717_ID,
+ 	AXP803_ID,
+ 	AXP806_ID,
+@@ -113,6 +114,7 @@ enum axp20x_variants {
+ #define AXP313A_SHUTDOWN_CTRL		0x1a
+ #define AXP313A_IRQ_EN			0x20
+ #define AXP313A_IRQ_STATE		0x21
++#define AXP323_DCDC_MODE_CTRL2		0x22
+ 
+ #define AXP717_ON_INDICATE		0x00
+ #define AXP717_PMU_STATUS_2		0x01
+@@ -960,7 +962,7 @@ struct axp20x_dev {
+ 	unsigned long			irq_flags;
+ 	struct regmap			*regmap;
+ 	struct regmap_irq_chip_data	*regmap_irqc;
+-	long				variant;
++	enum axp20x_variants		variant;
+ 	int                             nr_cells;
+ 	const struct mfd_cell           *cells;
+ 	const struct regmap_config	*regmap_cfg;
+-- 
+2.53.0
+

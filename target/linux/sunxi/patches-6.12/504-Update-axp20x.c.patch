@@ -1,0 +1,27 @@
+From 12d87cf70dc962263b1fb29517c51449c82c6308 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Wed, 11 Feb 2026 16:47:41 +0800
+Subject: [PATCH 01/11] Update axp20x.c
+
+---
+ drivers/mfd/axp20x.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/mfd/axp20x.c b/drivers/mfd/axp20x.c
+index 74ba5a358..c226518f0 100644
+--- a/drivers/mfd/axp20x.c
++++ b/drivers/mfd/axp20x.c
+@@ -1449,6 +1449,10 @@ int axp20x_device_probe(struct axp20x_dev *axp20x)
+ 
+ 	ret = mfd_add_devices(axp20x->dev, PLATFORM_DEVID_AUTO, axp20x->cells,
+ 			      axp20x->nr_cells, NULL, 0, NULL);
++	if (ret) {
++		ret = mfd_add_devices(axp20x->dev, PLATFORM_DEVID_AUTO, axp20x->cells,
++				      axp20x->nr_cells, NULL, 0, NULL);
++	}
+ 
+ 	if (ret) {
+ 		dev_err(axp20x->dev, "failed to add MFD devices: %d\n", ret);
+-- 
+2.53.0
+

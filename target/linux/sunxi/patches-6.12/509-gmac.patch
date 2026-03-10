@@ -1,0 +1,585 @@
+From 91bafaffd56a37cb4fe41867b47c1f3a82abba44 Mon Sep 17 00:00:00 2001
+From: iuncuim <iuncuim@gmail.com>
+Date: Wed, 11 Feb 2026 17:05:24 +0800
+Subject: [PATCH 06/11] gmac
+
+---
+ .../net/allwinner,sun8i-a83t-emac.yaml        |  95 ++++++++++-
+ .../arm64/boot/dts/allwinner/sun55i-a523.dtsi |  96 +++++++++++
+ .../dts/allwinner/sun55i-t527-avaota-a1.dts   |  22 +++
+ drivers/net/ethernet/stmicro/stmmac/Kconfig   |  12 ++
+ drivers/net/ethernet/stmicro/stmmac/Makefile  |   1 +
+ .../ethernet/stmicro/stmmac/dwmac-sun55i.c    | 159 ++++++++++++++++++
+ drivers/soc/sunxi/sunxi_sram.c                |  14 ++
+ 7 files changed, 397 insertions(+), 2 deletions(-)
+ create mode 100644 drivers/net/ethernet/stmicro/stmmac/dwmac-sun55i.c
+
+diff --git a/Documentation/devicetree/bindings/net/allwinner,sun8i-a83t-emac.yaml b/Documentation/devicetree/bindings/net/allwinner,sun8i-a83t-emac.yaml
+index 7fe0352df..505bf2b7e 100644
+--- a/Documentation/devicetree/bindings/net/allwinner,sun8i-a83t-emac.yaml
++++ b/Documentation/devicetree/bindings/net/allwinner,sun8i-a83t-emac.yaml
+@@ -10,6 +10,21 @@ maintainers:
+   - Chen-Yu Tsai <wens@csie.org>
+   - Maxime Ripard <mripard@kernel.org>
+ 
++# We need a select here so we don't match all nodes with 'snps,dwmac'
++select:
++  properties:
++    compatible:
++      contains:
++        enum:
++          - allwinner,sun8i-a83t-emac
++          - allwinner,sun8i-h3-emac
++          - allwinner,sun8i-r40-gmac
++          - allwinner,sun8i-v3s-emac
++          - allwinner,sun50i-a64-emac
++          - allwinner,sun55i-a523-gmac200
++  required:
++    - compatible
++
+ properties:
+   compatible:
+     oneOf:
+@@ -24,6 +39,9 @@ properties:
+               - allwinner,sun50i-h6-emac
+               - allwinner,sun50i-h616-emac0
+           - const: allwinner,sun50i-a64-emac
++      - items:
++          - const: allwinner,sun55i-a523-gmac200
++          - const: snps,dwmac-4.20a
+ 
+   reg:
+     maxItems: 1
+@@ -35,14 +53,21 @@ properties:
+     const: macirq
+ 
+   clocks:
+-    maxItems: 1
++    minItems: 1
++    maxItems: 2
+ 
+   clock-names:
+-    const: stmmaceth
++    minItems: 1
++    items:
++      - const: stmmaceth
++      - const: mbus
+ 
+   phy-supply:
+     description: PHY regulator
+ 
++  power-domains:
++    maxItems: 1
++
+   syscon:
+     $ref: /schemas/types.yaml#/definitions/phandle
+     description:
+@@ -189,6 +214,42 @@ allOf:
+             - mdio-parent-bus
+             - mdio@1
+ 
++  - if:
++      properties:
++        compatible:
++          contains:
++            const: allwinner,sun55i-a523-gmac200
++    then:
++      properties:
++        clocks:
++          minItems: 2
++        clock-names:
++          minItems: 2
++        tx-internal-delay-ps:
++          default: 0
++          minimum: 0
++          maximum: 700
++          multipleOf: 100
++          description:
++            External RGMII PHY TX clock delay chain value in ps.
++        rx-internal-delay-ps:
++          default: 0
++          minimum: 0
++          maximum: 3100
++          multipleOf: 100
++          description:
++            External RGMII PHY TX clock delay chain value in ps.
++      required:
++        - power-domains
++    else:
++      properties:
++        clocks:
++          maxItems: 1
++        clock-names:
++          maxItems: 1
++        power-domains: false
++
++
+ unevaluatedProperties: false
+ 
+ examples:
+@@ -321,4 +382,34 @@ examples:
+         };
+     };
+ 
++  - |
++    ethernet@4510000 {
++        compatible = "allwinner,sun55i-a523-gmac200",
++                     "snps,dwmac-4.20a";
++        reg = <0x04510000 0x10000>;
++        clocks = <&ccu 117>, <&ccu 79>;
++        clock-names = "stmmaceth", "mbus";
++        resets = <&ccu 43>;
++        reset-names = "stmmaceth";
++        interrupts = <0 47 4>;
++        interrupt-names = "macirq";
++        pinctrl-names = "default";
++        pinctrl-0 = <&rgmii1_pins>;
++        power-domains = <&pck600 4>;
++        syscon = <&syscon>;
++        phy-handle = <&ext_rgmii_phy_1>;
++        phy-mode = "rgmii-id";
++        snps,fixed-burst;
++        snps,axi-config = <&gmac1_stmmac_axi_setup>;
++
++        mdio {
++            compatible = "snps,dwmac-mdio";
++            #address-cells = <1>;
++            #size-cells = <0>;
++
++            ext_rgmii_phy_1: ethernet-phy@1 {
++                reg = <1>;
++            };
++        };
++    };
+ ...
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+index e796ba3ef..6f8ee1f5e 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun55i-a523.dtsi
+@@ -146,6 +146,16 @@ pio: pinctrl@2000000 {
+ 			interrupt-controller;
+ 			#interrupt-cells = <3>;
+ 
++			rgmii0_pins: rgmii0-pins {
++				pins = "PH0", "PH1", "PH2", "PH3", "PH4",
++				       "PH5", "PH6", "PH7", "PH9", "PH10",
++				       "PH14", "PH15", "PH16", "PH17", "PH18";
++				allwinner,pinmux = <5>;
++				function = "emac0";
++				drive-strength = <40>;
++				bias-disable;
++			};
++
+ 			mmc0_pins: mmc0-pins {
+ 				pins = "PF0" ,"PF1", "PF2", "PF3", "PF4", "PF5";
+ 				allwinner,pinmux = <2>;
+@@ -173,6 +183,16 @@ mmc2_pins: mmc2-pins {
+ 				bias-pull-up;
+ 			};
+ 
++			rgmii1_pins: rgmii1-pins {
++				pins = "PJ0", "PJ1", "PJ2", "PJ3", "PJ4",
++				       "PJ5", "PJ6", "PJ7", "PJ8", "PJ9",
++				       "PJ11", "PJ12", "PJ13", "PJ14", "PJ15";
++				allwinner,pinmux = <5>;
++				function = "gmac1";
++				drive-strength = <40>;
++				bias-disable;
++			};
++
+ 			uart0_pb_pins: uart0-pb-pins {
+ 				pins = "PB9", "PB10";
+ 				allwinner,pinmux = <2>;
+@@ -471,6 +491,15 @@ i2c5: i2c@2503400 {
+ 			#size-cells = <0>;
+ 		};
+ 
++		syscon: syscon@3000000 {
++			compatible = "allwinner,sun55i-a523-system-control",
++				     "allwinner,sun50i-a64-system-control";
++			reg = <0x03000000 0x1000>;
++			#address-cells = <1>;
++			#size-cells = <1>;
++			ranges;
++		};
++
+ 		gic: interrupt-controller@3400000 {
+ 			compatible = "arm,gic-v3";
+ 			#address-cells = <1>;
+@@ -583,6 +612,51 @@ ohci1: usb@4200400 {
+ 			status = "disabled";
+ 		};
+ 
++		gmac1: ethernet@4510000 {
++			compatible = "allwinner,sun55i-a523-gmac200",
++				     "snps,dwmac-4.20a";
++			reg = <0x04510000 0x10000>;
++			clocks = <&ccu CLK_BUS_EMAC1>, <&ccu CLK_MBUS_EMAC1>;
++			clock-names = "stmmaceth", "mbus";
++			resets = <&ccu RST_BUS_EMAC1>;
++			reset-names = "stmmaceth";
++			interrupts = <GIC_SPI 47 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "macirq";
++			pinctrl-names = "default";
++			pinctrl-0 = <&rgmii1_pins>;
++			power-domains = <&pck600 PD_VO1>;
++			syscon = <&syscon>;
++			snps,fixed-burst;
++			snps,axi-config = <&gmac1_stmmac_axi_setup>;
++			snps,mtl-rx-config = <&gmac1_mtl_rx_setup>;
++			snps,mtl-tx-config = <&gmac1_mtl_tx_setup>;
++			status = "disabled";
++
++			mdio1: mdio {
++				compatible = "snps,dwmac-mdio";
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
++
++			gmac1_mtl_rx_setup: rx-queues-config {
++				snps,rx-queues-to-use = <1>;
++
++				queue0 {};
++			};
++
++			gmac1_stmmac_axi_setup: stmmac-axi-config {
++				snps,wr_osr_lmt = <0xf>;
++				snps,rd_osr_lmt = <0xf>;
++				snps,blen = <256 128 64 32 16 8 4>;
++			};
++
++			gmac1_mtl_tx_setup: tx-queues-config {
++				snps,tx-queues-to-use = <1>;
++
++				queue0 {};
++			};
++		};
++
+ 		ppu: power-controller@7001400 {
+ 			compatible = "allwinner,sun55i-a523-ppu";
+ 			reg = <0x07001400 0x400>;
+@@ -591,6 +665,28 @@ ppu: power-controller@7001400 {
+ 			#power-domain-cells = <1>;
+ 		};
+ 
++		emac0: ethernet@4500000 {
++			compatible = "allwinner,sun55i-a523-emac0",
++				     "allwinner,sun50i-a64-emac";
++			reg = <0x04500000 0x10000>;
++			clocks = <&ccu CLK_BUS_EMAC0>;
++			clock-names = "stmmaceth";
++			resets = <&ccu RST_BUS_EMAC0>;
++			reset-names = "stmmaceth";
++			interrupts = <GIC_SPI 46 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "macirq";
++			pinctrl-names = "default";
++			pinctrl-0 = <&rgmii0_pins>;
++			syscon = <&syscon>;
++			status = "disabled";
++
++			mdio0: mdio {
++				compatible = "snps,dwmac-mdio";
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
++		};
++
+ 		r_ccu: clock-controller@7010000 {
+ 			compatible = "allwinner,sun55i-a523-r-ccu";
+ 			reg = <0x7010000 0x250>;
+diff --git a/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts b/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
+index c86346676..5538a97d8 100644
+--- a/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
++++ b/arch/arm64/boot/dts/allwinner/sun55i-t527-avaota-a1.dts
+@@ -13,6 +13,7 @@ / {
+ 	compatible = "yuzukihd,avaota-a1", "allwinner,sun55i-t527";
+ 
+ 	aliases {
++		ethernet1 = &gmac1;
+ 		serial0 = &uart0;
+ 	};
+ 
+@@ -73,6 +74,27 @@ &ehci1 {
+ 	status = "okay";
+ };
+ 
++&gmac1 {
++	phy-mode = "rgmii-id";
++	phy-handle = <&ext_rgmii1_phy>;
++	phy-supply = <&reg_dcdc4>;
++
++	tx-internal-delay-ps = <100>;
++	rx-internal-delay-ps = <100>;
++
++	status = "okay";
++};
++
++&mdio1 {
++	ext_rgmii1_phy: ethernet-phy@1 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <1>;
++		reset-gpios = <&pio 9 16 GPIO_ACTIVE_LOW>; /* PJ16 */
++		reset-assert-us = <10000>;
++		reset-deassert-us = <150000>;
++	};
++};
++
+ &mmc0 {
+ 	vmmc-supply = <&reg_cldo3>;
+ 	cd-gpios = <&pio 5 6 (GPIO_ACTIVE_LOW | GPIO_PULL_DOWN)>; /* PF6 */
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Kconfig b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+index 05cc07b8f..3ae641cfa 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Kconfig
++++ b/drivers/net/ethernet/stmicro/stmmac/Kconfig
+@@ -228,6 +228,18 @@ config DWMAC_SUN8I
+ 	  stmmac device driver. This driver is used for H3/A83T/A64
+ 	  EMAC ethernet controller.
+ 
++config DWMAC_SUN55I
++	tristate "Allwinner sun55i GMAC200 support"
++	default ARCH_SUNXI
++	depends on OF && (ARCH_SUNXI || COMPILE_TEST)
++	select MDIO_BUS_MUX
++	help
++	  Support for Allwinner A523/T527 GMAC200 ethernet controllers.
++
++	  This selects Allwinner SoC glue layer support for the
++	  stmmac device driver. This driver is used for A523/T527
++	  GMAC200 ethernet controller.
++
+ config DWMAC_IMX8
+ 	tristate "NXP IMX8 DWMAC support"
+ 	default ARCH_MXC
+diff --git a/drivers/net/ethernet/stmicro/stmmac/Makefile b/drivers/net/ethernet/stmicro/stmmac/Makefile
+index c2f0e91f6..9949c4bfa 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/Makefile
++++ b/drivers/net/ethernet/stmicro/stmmac/Makefile
+@@ -28,6 +28,7 @@ obj-$(CONFIG_DWMAC_STI)		+= dwmac-sti.o
+ obj-$(CONFIG_DWMAC_STM32)	+= dwmac-stm32.o
+ obj-$(CONFIG_DWMAC_SUNXI)	+= dwmac-sunxi.o
+ obj-$(CONFIG_DWMAC_SUN8I)	+= dwmac-sun8i.o
++obj-$(CONFIG_DWMAC_SUN55I)	+= dwmac-sun55i.o
+ obj-$(CONFIG_DWMAC_DWC_QOS_ETH)	+= dwmac-dwc-qos-eth.o
+ obj-$(CONFIG_DWMAC_INTEL_PLAT)	+= dwmac-intel-plat.o
+ obj-$(CONFIG_DWMAC_LOONGSON1)	+= dwmac-loongson1.o
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-sun55i.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun55i.c
+new file mode 100644
+index 000000000..862df173d
+--- /dev/null
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sun55i.c
+@@ -0,0 +1,159 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * dwmac-sun55i.c - Allwinner sun55i GMAC200 specific glue layer
++ *
++ * Copyright (C) 2025 Chen-Yu Tsai <wens@csie.org>
++ *
++ * syscon parts taken from dwmac-sun8i.c, which is
++ *
++ * Copyright (C) 2017 Corentin Labbe <clabbe.montjoie@gmail.com>
++ */
++
++#include <linux/bitfield.h>
++#include <linux/bits.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of.h>
++#include <linux/phy.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++#include <linux/regulator/consumer.h>
++#include <linux/stmmac.h>
++
++#include "stmmac.h"
++#include "stmmac_platform.h"
++
++#define SYSCON_REG		0x34
++
++/* RMII specific bits */
++#define SYSCON_RMII_EN		BIT(13) /* 1: enable RMII (overrides EPIT) */
++/* Generic system control EMAC_CLK bits */
++#define SYSCON_ETXDC_MASK		GENMASK(12, 10)
++#define SYSCON_ERXDC_MASK		GENMASK(9, 5)
++/* EMAC PHY Interface Type */
++#define SYSCON_EPIT			BIT(2) /* 1: RGMII, 0: MII */
++#define SYSCON_ETCS_MASK		GENMASK(1, 0)
++#define SYSCON_ETCS_MII		0x0
++#define SYSCON_ETCS_EXT_GMII	0x1
++#define SYSCON_ETCS_INT_GMII	0x2
++
++static int sun55i_gmac200_set_syscon(struct device *dev,
++				     struct plat_stmmacenet_data *plat)
++{
++	struct device_node *node = dev->of_node;
++	struct regmap *regmap;
++	u32 val, reg = 0;
++	int ret;
++
++	regmap = syscon_regmap_lookup_by_phandle(node, "syscon");
++	if (IS_ERR(regmap))
++		return dev_err_probe(dev, PTR_ERR(regmap), "Unable to map syscon\n");
++
++	if (!of_property_read_u32(node, "tx-internal-delay-ps", &val)) {
++		if (val % 100)
++			return dev_err_probe(dev, -EINVAL,
++					     "tx-delay must be a multiple of 100ps\n");
++		val /= 100;
++		dev_dbg(dev, "set tx-delay to %x\n", val);
++		if (!FIELD_FIT(SYSCON_ETXDC_MASK, val))
++			return dev_err_probe(dev, -EINVAL,
++					     "TX clock delay exceeds maximum (%u00ps > %lu00ps)\n",
++					     val, FIELD_MAX(SYSCON_ETXDC_MASK));
++
++		reg |= FIELD_PREP(SYSCON_ETXDC_MASK, val);
++	}
++
++	if (!of_property_read_u32(node, "rx-internal-delay-ps", &val)) {
++		if (val % 100)
++			return dev_err_probe(dev, -EINVAL,
++					     "rx-delay must be a multiple of 100ps\n");
++		val /= 100;
++		dev_dbg(dev, "set rx-delay to %x\n", val);
++		if (!FIELD_FIT(SYSCON_ERXDC_MASK, val))
++			return dev_err_probe(dev, -EINVAL,
++					     "RX clock delay exceeds maximum (%u00ps > %lu00ps)\n",
++					     val, FIELD_MAX(SYSCON_ERXDC_MASK));
++
++		reg |= FIELD_PREP(SYSCON_ERXDC_MASK, val);
++	}
++
++	switch (plat->phy_interface) {
++	case PHY_INTERFACE_MODE_MII:
++		/* default */
++		break;
++	case PHY_INTERFACE_MODE_RGMII:
++	case PHY_INTERFACE_MODE_RGMII_ID:
++	case PHY_INTERFACE_MODE_RGMII_RXID:
++	case PHY_INTERFACE_MODE_RGMII_TXID:
++		reg |= SYSCON_EPIT | SYSCON_ETCS_INT_GMII;
++		break;
++	case PHY_INTERFACE_MODE_RMII:
++		reg |= SYSCON_RMII_EN;
++		break;
++	default:
++		return dev_err_probe(dev, -EINVAL, "Unsupported interface mode: %s",
++				     phy_modes(plat->phy_interface));
++	}
++
++	ret = regmap_write(regmap, SYSCON_REG, reg);
++	if (ret < 0)
++		return dev_err_probe(dev, ret, "Failed to write to syscon\n");
++
++	return 0;
++}
++
++static int sun55i_gmac200_probe(struct platform_device *pdev)
++{
++	struct plat_stmmacenet_data *plat_dat;
++	struct stmmac_resources stmmac_res;
++	struct device *dev = &pdev->dev;
++	struct clk *clk;
++	int ret;
++
++	ret = stmmac_get_platform_resources(pdev, &stmmac_res);
++	if (ret)
++		return ret;
++
++	plat_dat = devm_stmmac_probe_config_dt(pdev, stmmac_res.mac);
++	if (IS_ERR(plat_dat))
++		return PTR_ERR(plat_dat);
++
++	/* BSP disables it */
++	plat_dat->flags |= STMMAC_FLAG_SPH_DISABLE;
++	plat_dat->host_dma_width = 32;
++
++	ret = sun55i_gmac200_set_syscon(dev, plat_dat);
++	if (ret)
++		return ret;
++
++	clk = devm_clk_get_enabled(dev, "mbus");
++	if (IS_ERR(clk))
++		return dev_err_probe(dev, PTR_ERR(clk),
++				     "Failed to get or enable MBUS clock\n");
++
++	ret = devm_regulator_get_enable_optional(dev, "phy");
++	if (ret)
++		return dev_err_probe(dev, ret, "Failed to get or enable PHY supply\n");
++
++	return devm_stmmac_pltfr_probe(pdev, plat_dat, &stmmac_res);
++}
++
++static const struct of_device_id sun55i_gmac200_match[] = {
++	{ .compatible = "allwinner,sun55i-a523-gmac200" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, sun55i_gmac200_match);
++
++static struct platform_driver sun55i_gmac200_driver = {
++	.probe  = sun55i_gmac200_probe,
++	.driver = {
++		.name           = "dwmac-sun55i",
++		.pm		= &stmmac_pltfr_pm_ops,
++		.of_match_table = sun55i_gmac200_match,
++	},
++};
++module_platform_driver(sun55i_gmac200_driver);
++
++MODULE_AUTHOR("Chen-Yu Tsai <wens@csie.org>");
++MODULE_DESCRIPTION("Allwinner sun55i GMAC200 specific glue layer");
++MODULE_LICENSE("GPL");
+diff --git a/drivers/soc/sunxi/sunxi_sram.c b/drivers/soc/sunxi/sunxi_sram.c
+index 26e3fc8a9..88a257a49 100644
+--- a/drivers/soc/sunxi/sunxi_sram.c
++++ b/drivers/soc/sunxi/sunxi_sram.c
+@@ -12,6 +12,7 @@
+ 
+ #include <linux/debugfs.h>
+ #include <linux/io.h>
++#include <linux/mfd/syscon.h>
+ #include <linux/module.h>
+ #include <linux/of.h>
+ #include <linux/of_address.h>
+@@ -314,6 +315,10 @@ static const struct sunxi_sramc_variant sun50i_h616_sramc_variant = {
+ 	.has_ths_offset = true,
+ };
+ 
++static const struct sunxi_sramc_variant sun55i_a523_sramc_variant = {
++	.num_emac_clocks = 2,
++};
++
+ #define SUNXI_SRAM_THS_OFFSET_REG	0x0
+ #define SUNXI_SRAM_EMAC_CLOCK_REG	0x30
+ #define SUNXI_SYS_LDO_CTRL_REG		0x150
+@@ -367,6 +372,7 @@ static int __init sunxi_sram_probe(struct platform_device *pdev)
+ 	const struct sunxi_sramc_variant *variant;
+ 	struct device *dev = &pdev->dev;
+ 	struct regmap *regmap;
++	int ret;
+ 
+ 	sram_dev = &pdev->dev;
+ 
+@@ -384,6 +390,10 @@ static int __init sunxi_sram_probe(struct platform_device *pdev)
+ 		regmap = devm_regmap_init_mmio(dev, base, &sunxi_sram_regmap_config);
+ 		if (IS_ERR(regmap))
+ 			return PTR_ERR(regmap);
++
++		ret = of_syscon_register_regmap(dev->of_node, regmap);
++		if (ret)
++			return ret;
+ 	}
+ 
+ 	of_platform_populate(dev->of_node, NULL, NULL, dev);
+@@ -438,6 +448,10 @@ static const struct of_device_id sunxi_sram_dt_match[] = {
+ 		.compatible = "allwinner,suniv-f1c100s-system-control",
+ 		.data = &sun4i_a10_sramc_variant,
+ 	},
++	{
++		.compatible = "allwinner,sun55i-a523-system-control",
++		.data = &sun55i_a523_sramc_variant,
++	},
+ 	{ },
+ };
+ MODULE_DEVICE_TABLE(of, sunxi_sram_dt_match);
+-- 
+2.53.0
+
